@@ -635,6 +635,15 @@ class Tape {
   }
 }
 
+const BF_CHAR_PLUS          = "+".charCodeAt(0);
+const BF_CHAR_MINUS         = "-".charCodeAt(0);
+const BF_CHAR_LESS          = "<".charCodeAt(0);
+const BF_CHAR_GREATER       = ">".charCodeAt(0);
+const BF_CHAR_LEFT_BRACKET  = "[".charCodeAt(0);
+const BF_CHAR_RIGHT_BRACKET = "]".charCodeAt(0);
+const BF_CHAR_DOT           = ".".charCodeAt(0);
+const BF_CHAR_COMMA         = ",".charCodeAt(0);
+
 class Program {
   private commands: Uint8Array;
   private jumps: number[];
@@ -655,9 +664,9 @@ class Program {
 
     for (let i = 0; i < this.commands.length; i++) {
       const cmd = this.commands[i];
-      if (cmd === 91) {
+      if (cmd === BF_CHAR_LEFT_BRACKET) {
         stack.push(i);
-      } else if (cmd === 93 && stack.length > 0) {
+      } else if (cmd === BF_CHAR_RIGHT_BRACKET && stack.length > 0) {
         const start = stack.pop()!;
         this.jumps[start] = i;
         this.jumps[i] = start;
@@ -675,32 +684,20 @@ class Program {
     while (pc < commands.length) {
       const cmd = commands[pc];
 
-      switch (cmd) {
-        case 43:
-          tape.inc();
-          break;
-        case 45:
-          tape.dec();
-          break;
-        case 62:
-          tape.advance();
-          break;
-        case 60:
-          tape.devance();
-          break;
-        case 91:
-          if (tape.get() === 0) {
-            pc = jumps[pc];
-          }
-          break;
-        case 93:
-          if (tape.get() !== 0) {
-            pc = jumps[pc];
-          }
-          break;
-        case 46:
-          result = ((result << 2) + tape.get()) >>> 0;
-          break;
+      if (cmd === BF_CHAR_PLUS) {
+        tape.inc();
+      } else if (cmd === BF_CHAR_MINUS) {
+        tape.dec();
+      } else if (cmd === BF_CHAR_GREATER) {
+        tape.advance();
+      } else if (cmd === BF_CHAR_LESS) {
+        tape.devance();
+      } else if (cmd === BF_CHAR_LEFT_BRACKET) {
+        if (tape.get() === 0) pc = jumps[pc];
+      } else if (cmd === BF_CHAR_RIGHT_BRACKET) {
+        if (tape.get() !== 0) pc = jumps[pc];
+      } else if (cmd === BF_CHAR_DOT) {
+        result = ((result << 2) + tape.get()) >>> 0;
       }
 
       pc++;

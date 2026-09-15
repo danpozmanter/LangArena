@@ -462,6 +462,14 @@ class Tape {
 }
 
 class BrainfuckProgram {
+  static final int _leftBracket  = '['.codeUnitAt(0);
+  static final int _rightBracket = ']'.codeUnitAt(0);
+  static final int _plus         = '+'.codeUnitAt(0);
+  static final int _minus        = '-'.codeUnitAt(0);
+  static final int _greater      = '>'.codeUnitAt(0);
+  static final int _less         = '<'.codeUnitAt(0);
+  static final int _dot          = '.'.codeUnitAt(0);
+
   final Uint8List _commands;
   final List<int> _jumps;
 
@@ -486,9 +494,9 @@ class BrainfuckProgram {
 
     for (int i = 0; i < _commands.length; i++) {
       final cmd = _commands[i];
-      if (cmd == 91) {
+      if (cmd == _leftBracket) {
         stack.add(i);
-      } else if (cmd == 93 && stack.isNotEmpty) {
+      } else if (cmd == _rightBracket && stack.isNotEmpty) {
         final start = stack.removeLast();
         _jumps[start] = i;
         _jumps[i] = start;
@@ -506,32 +514,24 @@ class BrainfuckProgram {
     while (pc < commands.length) {
       final cmd = commands[pc];
 
-      switch (cmd) {
-        case 43:
-          tape.inc();
-          break;
-        case 45:
-          tape.dec();
-          break;
-        case 62:
-          tape.advance();
-          break;
-        case 60:
-          tape.devance();
-          break;
-        case 91:
-          if (tape.get() == 0) {
-            pc = jumps[pc];
-          }
-          break;
-        case 93:
-          if (tape.get() != 0) {
-            pc = jumps[pc];
-          }
-          break;
-        case 46:
-          result = ((result << 2) + tape.get()) & 0xFFFFFFFF;
-          break;
+      if (cmd == _plus) {
+        tape.inc();
+      } else if (cmd == _minus) {
+        tape.dec();
+      } else if (cmd == _greater) {
+        tape.advance();
+      } else if (cmd == _less) {
+        tape.devance();
+      } else if (cmd == _leftBracket) {
+        if (tape.get() == 0) {
+          pc = jumps[pc];
+        }
+      } else if (cmd == _rightBracket) {
+        if (tape.get() != 0) {
+          pc = jumps[pc];
+        }
+      } else if (cmd == _dot) {
+        result = ((result << 2) + tape.get()) & 0xFFFFFFFF;
       }
 
       pc++;

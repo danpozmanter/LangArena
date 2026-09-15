@@ -2,6 +2,16 @@ from helper import Helper
 from benchmark import Benchmark, Config
 
 
+comptime CHAR_PLUS: UInt8 = UInt8(ord("+"))
+comptime CHAR_MINUS: UInt8 = UInt8(ord("-"))
+comptime CHAR_LESS: UInt8 = UInt8(ord("<"))
+comptime CHAR_GREATER: UInt8 = UInt8(ord(">"))
+comptime CHAR_LEFT_BRACKET: UInt8 = UInt8(ord("["))
+comptime CHAR_RIGHT_BRACKET: UInt8 = UInt8(ord("]"))
+comptime CHAR_DOT: UInt8 = UInt8(ord("."))
+comptime CHAR_COMMA: UInt8 = UInt8(ord(","))
+
+
 struct _Tape:
     var tape: List[UInt8]
     var pos: Int
@@ -68,14 +78,14 @@ struct BrainfuckArray(Benchmark, Movable):
                 var b = UInt8(s.as_bytes()[0])
 
                 if (
-                    b == 43
-                    or b == 45
-                    or b == 60
-                    or b == 62
-                    or b == 91
-                    or b == 93
-                    or b == 46
-                    or b == 44
+                    b == CHAR_PLUS
+                    or b == CHAR_MINUS
+                    or b == CHAR_LESS
+                    or b == CHAR_GREATER
+                    or b == CHAR_LEFT_BRACKET
+                    or b == CHAR_RIGHT_BRACKET
+                    or b == CHAR_DOT
+                    or b == CHAR_COMMA
                 ):
                     result.append(b)
 
@@ -88,9 +98,9 @@ struct BrainfuckArray(Benchmark, Movable):
 
         for i in range(len(commands)):
             var cmd = commands[i]
-            if cmd == 91:
+            if cmd == CHAR_LEFT_BRACKET:
                 stack.append(i)
-            elif cmd == 93:
+            elif cmd == CHAR_RIGHT_BRACKET:
                 if len(stack) == 0:
                     return List[Int]()
                 var start = stack[len(stack) - 1]
@@ -111,21 +121,21 @@ struct BrainfuckArray(Benchmark, Movable):
         while pc < len(commands):
             var cmd = commands[pc]
 
-            if cmd == 43:
+            if cmd == CHAR_PLUS:
                 tape.inc()
-            elif cmd == 45:
+            elif cmd == CHAR_MINUS:
                 tape.dec()
-            elif cmd == 62:
+            elif cmd == CHAR_GREATER:
                 tape.advance()
-            elif cmd == 60:
+            elif cmd == CHAR_LESS:
                 tape.devance()
-            elif cmd == 91:
+            elif cmd == CHAR_LEFT_BRACKET:
                 if tape.get() == 0:
                     pc = jumps[pc]
-            elif cmd == 93:
+            elif cmd == CHAR_RIGHT_BRACKET:
                 if tape.get() != 0:
                     pc = jumps[pc]
-            elif cmd == 46:
+            elif cmd == CHAR_DOT:
                 result = (result << 2) + UInt32(tape.get())
 
             pc += 1
