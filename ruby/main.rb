@@ -2499,8 +2499,8 @@ module Maze
       attr_accessor :cells, :start, :finish
 
       def initialize(w, h)
-        @w = w
-        @h = h
+        @w = [w, 5].max
+        @h = [h, 5].max
         @cells = Array.new(@h) { |y| Array.new(@w) { |x| Cell.new(x, y) } }
         @start = @cells[1][1]
         @finish = @cells[@h - 2][@w - 2]
@@ -2539,21 +2539,42 @@ module Maze
       end
 
       def dig(start)
-        q = []
-        q << start
-        while !q.empty?
-          cell = q.pop
-          if cell.neighbors.count { |n| Cell::Kind.walkable?(n.kind) } == 1
+        capacity = @w * @h
+        q = Array.new(capacity)
+        size = 0
+        q[size] = start
+        size += 1
+
+        while size > 0
+          size -= 1
+          cell = q[size]
+
+          walkable = 0
+          cell.neighbors.each { |n| walkable += 1 if Cell::Kind.walkable?(n.kind) }
+
+          if walkable == 1
             cell.kind = Cell::Kind::Space
-            cell.neighbors.each { |n| q << n if n.kind == Cell::Kind::Wall }
+            cell.neighbors.each do |n|
+              if n.kind == Cell::Kind::Wall
+                q[size] = n
+                size += 1
+              end
+            end
           end
         end
       end
 
       def ensure_open_finish(cell)
         cell.kind = Cell::Kind::Space
-        return if cell.neighbors.count { |n| Cell::Kind.walkable?(n.kind) } > 1
-        cell.neighbors.each { |n| ensure_open_finish(n) if n.kind == Cell::Kind::Wall }
+
+        walkable = 0
+        cell.neighbors.each { |n| walkable += 1 if Cell::Kind.walkable?(n.kind) }
+
+        return if walkable > 1
+
+        cell.neighbors.each do |n|
+          ensure_open_finish(n) if n.kind == Cell::Kind::Wall
+        end
       end
 
       def generate
@@ -2702,11 +2723,11 @@ module Maze
   end
 
   class AStar < Benchmark
+
     class PriorityQueue
       def initialize(size)
         @heap = []
         @size = 0
-        @best_priority = Array.new(size, 2 ** 31 - 1)
       end
 
       def empty?
@@ -2714,27 +2735,24 @@ module Maze
       end
 
       def push(vertex, priority)
-        return if priority >= @best_priority[vertex]
-
-        @best_priority[vertex] = priority
-
-        if @size >= @heap.size
-          @heap << [vertex, priority]
-        else
-          @heap[@size] = [vertex, priority]
-        end
 
         i = @size
         @size += 1
 
+        if i >= @heap.size
+          @heap << [priority, vertex]
+        else
+          @heap[i] = [priority, vertex]
+        end
+
         while i > 0
           parent = (i - 1) / 2
-          break if @heap[parent][1] <= priority
+          break if @heap[parent][0] <= priority
           @heap[i] = @heap[parent]
           i = parent
         end
 
-        @heap[i] = [vertex, priority]
+        @heap[i] = [priority, vertex]
       end
 
       def pop
@@ -2750,11 +2768,11 @@ module Maze
             right = 2 * i + 2
             smallest = i
 
-            if left < @size && @heap[left][1] < @heap[smallest][1]
+            if left < @size && @heap[left][0] < @heap[smallest][0]
               smallest = left
             end
 
-            if right < @size && @heap[right][1] < @heap[smallest][1]
+            if right < @size && @heap[right][0] < @heap[smallest][0]
               smallest = right
             end
 
@@ -2803,16 +2821,17 @@ module Maze
       max_int = 2 ** 31 - 1
       came_from = Array.new(size, -1)
       g_score = Array.new(size, max_int)
-      f_score = Array.new(size, max_int)
+      best_f = Array.new(size, max_int)
 
       open_set = PriorityQueue.new(size)
 
       g_score[start_idx] = 0
-      f_score[start_idx] = heuristic(start, target)
-      open_set.push(start_idx, f_score[start_idx])
+      f_start = heuristic(start, target)
+      open_set.push(start_idx, f_start)
+      best_f[start_idx] = f_start
 
       while !open_set.empty?
-        current_idx, _ = open_set.pop
+        priority, current_idx = open_set.pop
 
         if current_idx == target_idx
           return reconstruct_path(came_from, current_idx)
@@ -2834,9 +2853,11 @@ module Maze
             came_from[neighbor_idx] = current_idx
             g_score[neighbor_idx] = tentative_g
             new_f = tentative_g + heuristic(neighbor, target)
-            f_score[neighbor_idx] = new_f
 
-            open_set.push(neighbor_idx, new_f)
+            if new_f < best_f[neighbor_idx]
+              best_f[neighbor_idx] = new_f
+              open_set.push(neighbor_idx, new_f)
+            end
           end
         end
       end

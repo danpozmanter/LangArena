@@ -34,9 +34,11 @@ class MazeGenerator : Benchmark() {
         val width: Int,
         val height: Int,
     ) {
-        val cells = Array(height.coerceAtLeast(5)) { y -> Array(width.coerceAtLeast(5)) { x -> Cell(x, y) } }
+        private val w = width.coerceAtLeast(5)
+        private val h = height.coerceAtLeast(5)
+        val cells = Array(h) { y -> Array(w) { x -> Cell(x, y) } }
         val start = cells[1][1]
-        val finish = cells[cells.size - 2][cells[0].size - 2]
+        val finish = cells[h - 2][w - 2]
 
         init {
             start.kind = CellKind.START
@@ -45,12 +47,12 @@ class MazeGenerator : Benchmark() {
         }
 
         private fun updateNeighbors() {
-            for (y in cells.indices) {
-                for (x in cells[y].indices) {
+            for (y in 0 until h) {
+                for (x in 0 until w) {
                     val cell = cells[y][x]
 
-                    if (x > 0 && y > 0 && x < width - 1 && y < height - 1) {
-                        val neighbors =
+                    if (x > 0 && y > 0 && x < w - 1 && y < h - 1) {
+                        cell.neighbors =
                             arrayOf(
                                 cells[y - 1][x],
                                 cells[y + 1][x],
@@ -62,12 +64,11 @@ class MazeGenerator : Benchmark() {
                             val i = Helper.nextInt(4)
                             val j = Helper.nextInt(4)
                             if (i != j) {
-                                val tmp = neighbors[i]
-                                neighbors[i] = neighbors[j]
-                                neighbors[j] = tmp
+                                val tmp = cell.neighbors[i]
+                                cell.neighbors[i] = cell.neighbors[j]
+                                cell.neighbors[j] = tmp
                             }
                         }
-                        cell.neighbors = neighbors
                     } else {
                         cell.kind = CellKind.BORDER
                     }
@@ -86,41 +87,34 @@ class MazeGenerator : Benchmark() {
         }
 
         private fun dig(startCell: Cell) {
-            val stack = ArrayDeque<Cell>()
+            val stack = ArrayDeque<Cell>(w * h)
             stack.push(startCell)
 
             while (stack.isNotEmpty()) {
                 val cell = stack.pop()
 
                 val walkable = cell.neighbors.count { it.isWalkable() }
-                if (walkable == 1) {
-                    cell.kind = CellKind.SPACE
-
-                    for (n in cell.neighbors) {
-                        if (n.kind == CellKind.WALL) {
-                            stack.push(n)
-                        }
-                    }
-                }
-            }
-        }
-
-        private fun ensureOpenFinish(startCell: Cell) {
-            val stack = ArrayDeque<Cell>()
-            stack.push(startCell)
-
-            while (stack.isNotEmpty()) {
-                val cell = stack.pop()
+                if (walkable != 1) continue
 
                 cell.kind = CellKind.SPACE
-
-                val walkable = cell.neighbors.count { it.isWalkable() }
-                if (walkable > 1) continue
 
                 for (n in cell.neighbors) {
                     if (n.kind == CellKind.WALL) {
                         stack.push(n)
                     }
+                }
+            }
+        }
+
+        private fun ensureOpenFinish(cell: Cell) {
+            cell.kind = CellKind.SPACE
+
+            val walkable = cell.neighbors.count { it.isWalkable() }
+            if (walkable > 1) return
+
+            for (n in cell.neighbors) {
+                if (n.kind == CellKind.WALL) {
+                    ensureOpenFinish(n)
                 }
             }
         }
@@ -135,14 +129,14 @@ class MazeGenerator : Benchmark() {
             }
         }
 
-        fun middleCell(): Cell = cells[height / 2][width / 2]
+        fun middleCell(): Cell = cells[h / 2][w / 2]
 
         fun checksum(): UInt {
             var hasher = 2166136261uL
             val prime = 16777619uL
 
-            for (y in cells.indices) {
-                for (x in cells[y].indices) {
+            for (y in 0 until h) {
+                for (x in 0 until w) {
                     if (cells[y][x].kind == CellKind.SPACE) {
                         val value = (x * y).toULong()
                         hasher = (hasher xor value) * prime
@@ -155,23 +149,19 @@ class MazeGenerator : Benchmark() {
 
     private val width = configInt("w")
     private val height = configInt("h")
-    private lateinit var maze: Maze
+    private val maze = Maze(width, height)
     private var resultVal = 0u
 
     override fun name(): String = "Maze::Generator"
 
     override fun prepare() {
-        maze = Maze(width, height)
+        resultVal = 0u
     }
 
     override fun run(iterationId: Int) {
         maze.reset()
         maze.generate()
-        resultVal +=
-            maze
-                .middleCell()
-                .kind
-                .toUInt()
+        resultVal += maze.middleCell().kind.toUInt()
     }
 
     override fun checksum(): UInt = resultVal + maze.checksum()
@@ -187,13 +177,12 @@ class MazeBFS : Benchmark() {
     private var resultVal: UInt = 0u
     private val width = configInt("w")
     private val height = configInt("h")
-    private lateinit var maze: MazeGenerator.Maze
+    private val maze = MazeGenerator.Maze(width, height)
     private var path: List<MazeGenerator.Cell> = emptyList()
 
     override fun name(): String = "Maze::BFS"
 
     override fun prepare() {
-        maze = MazeGenerator.Maze(width, height)
         maze.generate()
         resultVal = 0u
         path = emptyList()
@@ -268,13 +257,12 @@ class MazeAStar : Benchmark() {
     private var resultVal: UInt = 0u
     private val width = configInt("w")
     private val height = configInt("h")
-    private lateinit var maze: MazeGenerator.Maze
+    private val maze = MazeGenerator.Maze(width, height)
     private var path: List<MazeGenerator.Cell> = emptyList()
 
     override fun name(): String = "Maze::AStar"
 
     override fun prepare() {
-        maze = MazeGenerator.Maze(width, height)
         maze.generate()
         resultVal = 0u
         path = emptyList()
@@ -314,8 +302,6 @@ class MazeAStar : Benchmark() {
         while (openSet.isNotEmpty()) {
             val item = openSet.poll()
             val currentIdx = item.vertex
-
-            if (item.priority != bestF[currentIdx]) continue
 
             if (currentIdx == targetIdx) {
                 val result = mutableListOf<MazeGenerator.Cell>()

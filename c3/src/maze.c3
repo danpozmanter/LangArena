@@ -35,15 +35,6 @@ struct Maze
 	MazeCell* finish;
 }
 
-fn MazeCell* maze_cell_create(int x, int y)
-{
-	MazeCell* cell = mem::new(MazeCell);
-	cell.kind = MAZE_CELL_WALL;
-	cell.x = x;
-	cell.y = y;
-	return cell;
-}
-
 fn void maze_cell_add_neighbor(MazeCell* cell, MazeCell* neighbor)
 {
 	if (cell.neighbor_count < 4)
@@ -64,30 +55,6 @@ fn void maze_cell_reset(MazeCell* cell)
 	{
 		cell.kind = MAZE_CELL_WALL;
 	}
-}
-
-fn Maze* maze_create(int width, int height)
-{
-	Maze* maze = mem::new(Maze);
-	maze.width = width;
-	maze.height = height;
-
-	maze.cells = mem::alloc_array(MazeCell*, (usz)height);
-	for (int y = 0; y < height; y++)
-	{
-		maze.cells[y] = mem::alloc_array(MazeCell, (usz)width);
-		for (int x = 0; x < width; x++)
-		{
-			maze.cells[y][x] = *maze_cell_create(x, y);
-		}
-	}
-
-	maze.start = &maze.cells[1][1];
-	maze.finish = &maze.cells[height - 2][width - 2];
-	maze.start.kind = MAZE_CELL_START;
-	maze.finish.kind = MAZE_CELL_FINISH;
-
-	return maze;
 }
 
 fn void maze_update_neighbors(Maze* maze)
@@ -124,6 +91,36 @@ fn void maze_update_neighbors(Maze* maze)
 			}
 		}
 	}
+}
+
+fn Maze* maze_create(int width, int height)
+{
+	Maze* maze = mem::new(Maze);
+	maze.width = width;
+	maze.height = height;
+
+	maze.cells = mem::alloc_array(MazeCell*, (usz)height);
+	for (int y = 0; y < height; y++)
+	{
+		maze.cells[y] = mem::alloc_array(MazeCell, (usz)width);
+		for (int x = 0; x < width; x++)
+		{
+			MazeCell* cell = &maze.cells[y][x];
+			cell.kind = MAZE_CELL_WALL;
+			cell.x = x;
+			cell.y = y;
+			cell.neighbor_count = 0;
+		}
+	}
+
+	maze.start = &maze.cells[1][1];
+	maze.finish = &maze.cells[height - 2][width - 2];
+	maze.start.kind = MAZE_CELL_START;
+	maze.finish.kind = MAZE_CELL_FINISH;
+
+	maze_update_neighbors(maze);
+
+	return maze;
 }
 
 fn void maze_reset(Maze* maze)
@@ -181,39 +178,29 @@ fn void maze_dig(Maze* maze, MazeCell* start_cell)
 	mem::free(stack);
 }
 
-fn void maze_ensure_open_finish(Maze* maze, MazeCell* start_cell)
+fn void maze_ensure_open_finish(Maze* maze, MazeCell* cell)
 {
-	usz max_size     = (usz)(maze.width * maze.height);
-	MazeCell** stack = mem::alloc_array(MazeCell*, (sz)max_size);
-	int stack_size   = 0;
-	stack[stack_size++] = start_cell;
+	cell.kind = MAZE_CELL_SPACE;
 
-	while (stack_size > 0)
+	int walkable = 0;
+	for (int i = 0; i < cell.neighbor_count; i++)
 	{
-		MazeCell* cell = stack[--stack_size];
-		cell.kind = MAZE_CELL_SPACE;
-
-		int walkable = 0;
-		for (int i = 0; i < cell.neighbor_count; i++)
+		if (maze_cell_is_walkable(cell.neighbors[i]))
 		{
-			if (maze_cell_is_walkable(cell.neighbors[i]))
-			{
-				walkable++;
-			}
-		}
-		if (walkable > 1) continue;
-
-		for (int i = 0; i < cell.neighbor_count; i++)
-		{
-			MazeCell* n = cell.neighbors[i];
-			if (n.kind == MAZE_CELL_WALL)
-			{
-				stack[stack_size++] = n;
-			}
+			walkable++;
 		}
 	}
 
-	mem::free(stack);
+	if (walkable > 1) return;
+
+	for (int i = 0; i < cell.neighbor_count; i++)
+	{
+		MazeCell* n = cell.neighbors[i];
+		if (n.kind == MAZE_CELL_WALL)
+		{
+			maze_ensure_open_finish(maze, n);
+		}
+	}
 }
 
 fn void maze_generate(Maze* maze)
@@ -283,21 +270,6 @@ struct MazeGeneratorData
 fn void maze_generator_prepare(Benchmark* self)
 {
 	MazeGeneratorData* data = (MazeGeneratorData*)self.data;
-
-	data.width = (int)helper::helper_config_i64(self.name, "w");
-	data.height = (int)helper::helper_config_i64(self.name, "h");
-
-	if (data.width < 5)
-	{
-		data.width = 5;
-	}
-	if (data.height < 5)
-	{
-		data.height = 5;
-	}
-
-	data.maze = maze_create(data.width, data.height);
-	maze_update_neighbors(data.maze);
 	data.result_val = 0;
 }
 
@@ -328,6 +300,14 @@ fn Benchmark* maze_generator_create() @cname("MazeGenerator_create") @export
 {
 	Benchmark* bench        = benchmark::benchmark_create("Maze::Generator");
 	MazeGeneratorData* data = mem::new(MazeGeneratorData);
+
+	data.width = (int)helper::helper_config_i64(bench.name, "w");
+	data.height = (int)helper::helper_config_i64(bench.name, "h");
+	if (data.width < 5) data.width = 5;
+	if (data.height < 5) data.height = 5;
+
+	data.maze = maze_create(data.width, data.height);
+	data.result_val = 0;
 
 	bench.data = data;
 	bench.prepare = (PrepareFn)&maze_generator_prepare;
@@ -452,21 +432,6 @@ fn MazeCell** maze_bfs(Maze* maze, MazeCell* start, MazeCell* target, int* out_l
 fn void maze_bfs_prepare(Benchmark* self)
 {
 	MazeBFSData* data = (MazeBFSData*)self.data;
-
-	data.width = (int)helper::helper_config_i64(self.name, "w");
-	data.height = (int)helper::helper_config_i64(self.name, "h");
-
-	if (data.width < 5)
-	{
-		data.width = 5;
-	}
-	if (data.height < 5)
-	{
-		data.height = 5;
-	}
-
-	data.maze = maze_create(data.width, data.height);
-	maze_update_neighbors(data.maze);
 	maze_generate(data.maze);
 	data.result_val = 0;
 	data.path = null;
@@ -501,6 +466,16 @@ fn Benchmark* maze_bfs_create() @cname("MazeBFS_create") @export
 {
 	Benchmark* bench  = benchmark::benchmark_create("Maze::BFS");
 	MazeBFSData* data = mem::new(MazeBFSData);
+
+	data.width = (int)helper::helper_config_i64(bench.name, "w");
+	data.height = (int)helper::helper_config_i64(bench.name, "h");
+	if (data.width < 5) data.width = 5;
+	if (data.height < 5) data.height = 5;
+
+	data.maze = maze_create(data.width, data.height);
+	data.result_val = 0;
+	data.path = null;
+	data.path_length = 0;
 
 	bench.data = data;
 	bench.prepare = (PrepareFn)&maze_bfs_prepare;
@@ -560,14 +535,14 @@ fn MazeCell** maze_astar(Maze* maze, MazeCell* start, MazeCell* target, int* out
 	int height = maze.height;
 	int size   = width * height;
 
-	int* came_from     = mem::alloc_array(int, (usz)size);
-	int* g_score       = mem::alloc_array(int, (usz)size);
-	int* best_priority = mem::alloc_array(int, (usz)size);
+	int* came_from = mem::alloc_array(int, (usz)size);
+	int* g_score   = mem::alloc_array(int, (usz)size);
+	int* best_f    = mem::alloc_array(int, (usz)size);
 	for (int i = 0; i < size; i++)
 	{
 		came_from[i] = -1;
 		g_score[i] = int::max;
-		best_priority[i] = int::max;
+		best_f[i] = int::max;
 	}
 
 	int start_idx  = astar_idx(start.y, start.x, width);
@@ -577,7 +552,9 @@ fn MazeCell** maze_astar(Maze* maze, MazeCell* start, MazeCell* target, int* out
 	open_set.init(mem, (usz)size);
 
 	g_score[start_idx] = 0;
-	open_set.push({ astar_heuristic(start, target), start_idx });
+	int f_start = astar_heuristic(start, target);
+	open_set.push({ f_start, start_idx });
+	best_f[start_idx] = f_start;
 
 	while (!open_set.is_empty())
 	{
@@ -607,7 +584,7 @@ fn MazeCell** maze_astar(Maze* maze, MazeCell* start, MazeCell* target, int* out
 			*out_length = length;
 			mem::free(came_from);
 			mem::free(g_score);
-			mem::free(best_priority);
+			mem::free(best_f);
 			open_set.free();
 			return result;
 		}
@@ -631,9 +608,9 @@ fn MazeCell** maze_astar(Maze* maze, MazeCell* start, MazeCell* target, int* out
 				g_score[neighbor_idx] = tentative_g;
 				int f_new = tentative_g + astar_heuristic(neighbor, target);
 
-				if (f_new < best_priority[neighbor_idx])
+				if (f_new < best_f[neighbor_idx])
 				{
-					best_priority[neighbor_idx] = f_new;
+					best_f[neighbor_idx] = f_new;
 					open_set.push({ f_new, neighbor_idx });
 				}
 			}
@@ -643,7 +620,7 @@ fn MazeCell** maze_astar(Maze* maze, MazeCell* start, MazeCell* target, int* out
 	*out_length = 0;
 	mem::free(came_from);
 	mem::free(g_score);
-	mem::free(best_priority);
+	mem::free(best_f);
 	open_set.free();
 	return null;
 }
@@ -651,21 +628,6 @@ fn MazeCell** maze_astar(Maze* maze, MazeCell* start, MazeCell* target, int* out
 fn void maze_astar_prepare(Benchmark* self)
 {
 	MazeAStarData* data = (MazeAStarData*)self.data;
-
-	data.width = (int)helper::helper_config_i64(self.name, "w");
-	data.height = (int)helper::helper_config_i64(self.name, "h");
-
-	if (data.width < 5)
-	{
-		data.width = 5;
-	}
-	if (data.height < 5)
-	{
-		data.height = 5;
-	}
-
-	data.maze = maze_create(data.width, data.height);
-	maze_update_neighbors(data.maze);
 	maze_generate(data.maze);
 	data.result_val = 0;
 	data.path = null;
@@ -700,6 +662,16 @@ fn Benchmark* maze_astar_create() @cname("MazeAStar_create") @export
 {
 	Benchmark* bench    = benchmark::benchmark_create("Maze::AStar");
 	MazeAStarData* data = mem::new(MazeAStarData);
+
+	data.width = (int)helper::helper_config_i64(bench.name, "w");
+	data.height = (int)helper::helper_config_i64(bench.name, "h");
+	if (data.width < 5) data.width = 5;
+	if (data.height < 5) data.height = 5;
+
+	data.maze = maze_create(data.width, data.height);
+	data.result_val = 0;
+	data.path = null;
+	data.path_length = 0;
 
 	bench.data = data;
 	bench.prepare = (PrepareFn)&maze_astar_prepare;

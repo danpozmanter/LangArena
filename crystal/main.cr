@@ -2487,7 +2487,7 @@ module Maze
       end
 
       def dig(start : Cell)
-        q = Array(Cell).new
+        q = Array(Cell).new(initial_capacity: @w * @h)
         q << start
         while cell = q.pop?
           if cell.neighbors.count(&.kind.walkable?) == 1
@@ -2643,12 +2643,21 @@ module Maze
 
   class AStar < Benchmark
     private class PriorityQueue
-      @heap = Array({Int32, Int32}).new
-      @size : Int32 = 0
-      @best_priority : Array(Int32)
+      struct Entry
+        property priority : Int32
+        property vertex : Int32
 
-      def initialize(size)
-        @best_priority = Array.new(size, Int32::MAX)
+        def initialize(@priority, @vertex)
+        end
+      end
+
+      @heap : Array(Entry)
+      @size : Int32 = 0
+      @capacity : Int32
+
+      def initialize(capacity : Int32)
+        @capacity = capacity
+        @heap = Array(Entry).new(capacity)
       end
 
       def empty?
@@ -2656,29 +2665,29 @@ module Maze
       end
 
       def push(vertex : Int32, priority : Int32)
-        return if priority >= @best_priority[vertex]
-
-        @best_priority[vertex] = priority
-
-        if @size >= @heap.size
-          @heap << {vertex, priority}
-        else
-          @heap[@size] = {vertex, priority}
+        if @size >= @capacity
+          @capacity *= 2
         end
 
         i = @size
         @size += 1
 
+        if i >= @heap.size
+          @heap << Entry.new(priority, vertex)
+        else
+          @heap[i] = Entry.new(priority, vertex)
+        end
+
         while i > 0
           parent = (i - 1) // 2
-          break if @heap[parent][1] <= priority
+          break if @heap[parent].priority <= priority
           @heap[i] = @heap[parent]
           i = parent
         end
-        @heap[i] = {vertex, priority}
+        @heap[i] = Entry.new(priority, vertex)
       end
 
-      def pop
+      def pop : Entry
         min = @heap[0]
         @size -= 1
 
@@ -2691,10 +2700,10 @@ module Maze
             right = 2*i + 2
             smallest = i
 
-            if left < @size && @heap[left][1] < @heap[smallest][1]
+            if left < @size && @heap[left].priority < @heap[smallest].priority
               smallest = left
             end
-            if right < @size && @heap[right][1] < @heap[smallest][1]
+            if right < @size && @heap[right].priority < @heap[smallest].priority
               smallest = right
             end
 
@@ -2742,16 +2751,18 @@ module Maze
 
       came_from = Array(Int32).new(size, -1)
       g_score = Array(Int32).new(size, Int32::MAX)
-      f_score = Array(Int32).new(size, Int32::MAX)
+      best_f = Array(Int32).new(size, Int32::MAX)
 
       open_set = PriorityQueue.new(size)
 
       g_score[start_idx] = 0
-      f_score[start_idx] = heuristic(start, target)
-      open_set.push(start_idx, f_score[start_idx])
+      f_start = heuristic(start, target)
+      open_set.push(start_idx, f_start)
+      best_f[start_idx] = f_start
 
       while !open_set.empty?
-        current_idx, _ = open_set.pop
+        entry = open_set.pop
+        current_idx = entry.vertex
 
         if current_idx == target_idx
           return reconstruct_path(came_from, current_idx)
@@ -2772,10 +2783,12 @@ module Maze
           if tentative_g < g_score[neighbor_idx]
             came_from[neighbor_idx] = current_idx
             g_score[neighbor_idx] = tentative_g
-            new_f = tentative_g + heuristic(neighbor, target)
-            f_score[neighbor_idx] = new_f
+            f_new = tentative_g + heuristic(neighbor, target)
 
-            open_set.push(neighbor_idx, new_f)
+            if f_new < best_f[neighbor_idx]
+              best_f[neighbor_idx] = f_new
+              open_set.push(neighbor_idx, f_new)
+            end
           end
         end
       end

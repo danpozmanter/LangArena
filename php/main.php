@@ -2899,20 +2899,20 @@ class Maze
 
     public function __construct(int $w, int $h)
     {
-        $this->w = $w;
-        $this->h = $h;
+        $this->w = max($w, 5);
+        $this->h = max($h, 5);
         $this->cells = [];
 
-        for ($y = 0; $y < $h; $y++) {
+        for ($y = 0; $y < $this->h; $y++) {
             $row = [];
-            for ($x = 0; $x < $w; $x++) {
+            for ($x = 0; $x < $this->w; $x++) {
                 $row[] = new Cell($x, $y);
             }
             $this->cells[] = $row;
         }
 
         $this->start = $this->cells[1][1];
-        $this->finish = $this->cells[$h - 2][$w - 2];
+        $this->finish = $this->cells[$this->h - 2][$this->w - 2];
         $this->start->kind = CellKind::START;
         $this->finish->kind = CellKind::FINISH;
 
@@ -2960,14 +2960,17 @@ class Maze
 
     public function dig(Cell $start): void
     {
-        $q = [$start];
-        while (!empty($q)) {
-            $cell = array_pop($q);
+        $q = new SplFixedArray($this->w * $this->h);
+        $size = 0;
+        $q[$size++] = $start;
+
+        while ($size > 0) {
+            $cell = $q[--$size];
             if ($this->countWalkableNeighbors($cell) === 1) {
                 $cell->kind = CellKind::SPACE;
                 foreach ($cell->neighbors as $n) {
                     if ($n->kind === CellKind::WALL) {
-                        $q[] = $n;
+                        $q[$size++] = $n;
                     }
                 }
             }
@@ -3046,6 +3049,7 @@ class MazeGenerator extends Benchmark
     {
         $this->width = $this->configVal('w');
         $this->height = $this->configVal('h');
+        $this->maze = new Maze($this->width, $this->height);
         $this->result_val = 0;
     }
 
@@ -3056,7 +3060,6 @@ class MazeGenerator extends Benchmark
 
     public function prepare(): void
     {
-        $this->maze = new Maze($this->width, $this->height);
         $this->result_val = 0;
     }
 
@@ -3085,6 +3088,7 @@ class MazeBFS extends Benchmark
     {
         $this->width = $this->configVal('w');
         $this->height = $this->configVal('h');
+        $this->maze = new Maze($this->width, $this->height);
         $this->path = [];
         $this->result_val = 0;
     }
@@ -3096,7 +3100,6 @@ class MazeBFS extends Benchmark
 
     public function prepare(): void
     {
-        $this->maze = new Maze($this->width, $this->height);
         $this->maze->generate();
         $this->path = [];
         $this->result_val = 0;
@@ -3163,12 +3166,6 @@ class MazePriorityQueue
 {
     private array $heap = [];
     private int $size = 0;
-    private array $bestPriority;
-
-    public function __construct(int $maxSize)
-    {
-        $this->bestPriority = array_fill(0, $maxSize, PHP_INT_MAX);
-    }
 
     public function isEmpty(): bool
     {
@@ -3177,29 +3174,23 @@ class MazePriorityQueue
 
     public function push(int $vertex, int $priority): void
     {
-        if ($priority >= $this->bestPriority[$vertex]) {
-            return;
-        }
-
-        $this->bestPriority[$vertex] = $priority;
-
-        if ($this->size >= count($this->heap)) {
-            $this->heap[] = [$vertex, $priority];
-        } else {
-            $this->heap[$this->size] = [$vertex, $priority];
-        }
-
         $i = $this->size;
         $this->size++;
 
+        if ($i >= count($this->heap)) {
+            $this->heap[] = [$priority, $vertex];
+        } else {
+            $this->heap[$i] = [$priority, $vertex];
+        }
+
         while ($i > 0) {
             $parent = ($i - 1) >> 1;
-            if ($this->heap[$parent][1] <= $priority)
+            if ($this->heap[$parent][0] <= $priority)
                 break;
             $this->heap[$i] = $this->heap[$parent];
             $i = $parent;
         }
-        $this->heap[$i] = [$vertex, $priority];
+        $this->heap[$i] = [$priority, $vertex];
     }
 
     public function pop(): array
@@ -3216,10 +3207,10 @@ class MazePriorityQueue
                 $right = 2 * $i + 2;
                 $smallest = $i;
 
-                if ($left < $this->size && $this->heap[$left][1] < $this->heap[$smallest][1]) {
+                if ($left < $this->size && $this->heap[$left][0] < $this->heap[$smallest][0]) {
                     $smallest = $left;
                 }
-                if ($right < $this->size && $this->heap[$right][1] < $this->heap[$smallest][1]) {
+                if ($right < $this->size && $this->heap[$right][0] < $this->heap[$smallest][0]) {
                     $smallest = $right;
                 }
 
@@ -3249,6 +3240,7 @@ class MazeAStar extends Benchmark
     {
         $this->width = $this->configVal('w');
         $this->height = $this->configVal('h');
+        $this->maze = new Maze($this->width, $this->height);
         $this->path = [];
         $this->result_val = 0;
     }
@@ -3260,7 +3252,6 @@ class MazeAStar extends Benchmark
 
     public function prepare(): void
     {
-        $this->maze = new Maze($this->width, $this->height);
         $this->maze->generate();
         $this->path = [];
         $this->result_val = 0;
@@ -3286,14 +3277,17 @@ class MazeAStar extends Benchmark
 
         $cameFrom = array_fill(0, $size, -1);
         $gScore = array_fill(0, $size, PHP_INT_MAX);
+        $bestF = array_fill(0, $size, PHP_INT_MAX);
 
-        $openSet = new MazePriorityQueue($size);
+        $openSet = new MazePriorityQueue();
 
         $gScore[$startIdx] = 0;
-        $openSet->push($startIdx, $this->heuristic($start, $target));
+        $fStart = $this->heuristic($start, $target);
+        $openSet->push($startIdx, $fStart);
+        $bestF[$startIdx] = $fStart;
 
         while (!$openSet->isEmpty()) {
-            [$currentIdx, $_] = $openSet->pop();
+            [$priority, $currentIdx] = $openSet->pop();
 
             if ($currentIdx === $targetIdx) {
                 return $this->reconstructPath($cameFrom, $currentIdx);
@@ -3316,7 +3310,10 @@ class MazeAStar extends Benchmark
                     $gScore[$neighborIdx] = $tentativeG;
                     $newF = $tentativeG + $this->heuristic($neighbor, $target);
 
-                    $openSet->push($neighborIdx, $newF);
+                    if ($newF < $bestF[$neighborIdx]) {
+                        $bestF[$neighborIdx] = $newF;
+                        $openSet->push($neighborIdx, $newF);
+                    }
                 }
             }
         }

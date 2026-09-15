@@ -2834,7 +2834,6 @@ class Maze:
         for y in range(self.height):
             for x in range(self.width):
                 cell = self.cells[y][x]
-                cell.neighbors.clear()
 
                 if 0 < x < self.width - 1 and 0 < y < self.height - 1:
                     cell.add_neighbor(self.cells[y - 1][x])
@@ -2859,10 +2858,16 @@ class Maze:
         self.finish.kind = CellKind.FINISH
 
     def _dig(self, start_cell: Cell) -> None:
-        stack = [start_cell]
 
-        while stack:
-            cell = stack.pop()
+        capacity = self.width * self.height
+        stack: List[Optional[Cell]] = [None] * capacity
+        size = 0
+        stack[size] = start_cell
+        size += 1
+
+        while size > 0:
+            size -= 1
+            cell = stack[size]
 
             walkable = sum(1 for n in cell.neighbors if n.kind.is_walkable())
 
@@ -2870,23 +2875,19 @@ class Maze:
                 cell.kind = CellKind.SPACE
                 for n in cell.neighbors:
                     if n.kind == CellKind.WALL:
-                        stack.append(n)
+                        stack[size] = n
+                        size += 1
 
-    def _ensure_open_finish(self, start_cell: Cell) -> None:
-        stack = [start_cell]
+    def _ensure_open_finish(self, cell: Cell) -> None:
+        cell.kind = CellKind.SPACE
 
-        while stack:
-            cell = stack.pop()
+        walkable = sum(1 for n in cell.neighbors if n.kind.is_walkable())
+        if walkable > 1:
+            return
 
-            cell.kind = CellKind.SPACE
-
-            walkable = sum(1 for n in cell.neighbors if n.kind.is_walkable())
-            if walkable > 1:
-                continue
-
-            for n in cell.neighbors:
-                if n.kind == CellKind.WALL:
-                    stack.append(n)
+        for n in cell.neighbors:
+            if n.kind == CellKind.WALL:
+                self._ensure_open_finish(n)
 
     def generate(self) -> None:
         for n in self.start.neighbors:
@@ -2937,27 +2938,20 @@ class MazeGenerator(Benchmark):
     def __init__(self):
         super().__init__()
         self.result_val = 0
-        self.width = 0
-        self.height = 0
-        self.maze: Optional[Maze] = None
+        self.width = Helper.config_i64("Maze::Generator", "w")
+        self.height = Helper.config_i64("Maze::Generator", "h")
+        self.maze = Maze(self.width, self.height)
 
     def prepare(self) -> None:
-        self.width = Helper.config_i64(self.name(), "w")
-        self.height = Helper.config_i64(self.name(), "h")
-        self.maze = Maze(self.width, self.height)
         self.result_val = 0
 
     def run_benchmark(self, iteration_id: int) -> None:
-        if self.maze is None:
-            return
         self.maze.reset()
         self.maze.generate()
         self.result_val = (self.result_val +
                            self.maze.middle_cell().kind.value) & 0xFFFFFFFF
 
     def checksum(self) -> int:
-        if self.maze is None:
-            return 0
         return (self.result_val + self.maze.checksum()) & 0xFFFFFFFF
 
     def name(self) -> str:
@@ -2976,15 +2970,12 @@ class MazeBFS(Benchmark):
     def __init__(self):
         super().__init__()
         self.result_val = 0
-        self.width = 0
-        self.height = 0
-        self.maze: Optional[Maze] = None
+        self.width = Helper.config_i64("Maze::BFS", "w")
+        self.height = Helper.config_i64("Maze::BFS", "h")
+        self.maze = Maze(self.width, self.height)
         self.path: List[Cell] = []
 
     def prepare(self) -> None:
-        self.width = Helper.config_i64(self.name(), "w")
-        self.height = Helper.config_i64(self.name(), "h")
-        self.maze = Maze(self.width, self.height)
         self.maze.generate()
         self.result_val = 0
         self.path = []
@@ -3028,8 +3019,6 @@ class MazeBFS(Benchmark):
         return (cell.x * cell.y) & 0xFFFFFFFF
 
     def run_benchmark(self, iteration_id: int) -> None:
-        if self.maze is None:
-            return
         self.path = self._bfs(self.maze.start, self.maze.finish)
         self.result_val = (self.result_val + len(self.path)) & 0xFFFFFFFF
 
@@ -3058,15 +3047,12 @@ class MazeAStar(Benchmark):
     def __init__(self):
         super().__init__()
         self.result_val = 0
-        self.width = 0
-        self.height = 0
-        self.maze: Optional[Maze] = None
+        self.width = Helper.config_i64("Maze::AStar", "w")
+        self.height = Helper.config_i64("Maze::AStar", "h")
+        self.maze = Maze(self.width, self.height)
         self.path: List[Cell] = []
 
     def prepare(self) -> None:
-        self.width = Helper.config_i64(self.name(), "w")
-        self.height = Helper.config_i64(self.name(), "h")
-        self.maze = Maze(self.width, self.height)
         self.maze.generate()
         self.result_val = 0
         self.path = []
@@ -3143,8 +3129,6 @@ class MazeAStar(Benchmark):
         return (cell.x * cell.y) & 0xFFFFFFFF
 
     def run_benchmark(self, iteration_id: int) -> None:
-        if self.maze is None:
-            return
         self.path = self._astar(self.maze.start, self.maze.finish)
         self.result_val = (self.result_val + len(self.path)) & 0xFFFFFFFF
 

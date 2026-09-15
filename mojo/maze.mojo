@@ -1,5 +1,6 @@
 from helper import Helper
 from benchmark import Benchmark, Config
+from std.collections import BinaryHeap
 
 comptime MAZE_WALL = 0
 comptime MAZE_SPACE = 1
@@ -40,60 +41,21 @@ struct _MazeCell(Copyable):
             self.kind = MAZE_WALL
 
 
-struct _PriorityQueue(Movable):
-    var heap: List[Tuple[Int, Int]]
-    var best: List[Int]
+struct AStarEntry(Comparable, Copyable, Movable):
+    var priority: Int
+    var vertex: Int
 
-    def __init__(out self, size: Int):
-        self.heap = List[Tuple[Int, Int]]()
-        self.best = List[Int](length=size, fill=2147483647)
+    def __init__(out self, priority: Int, vertex: Int):
+        self.priority = priority
+        self.vertex = vertex
 
-    def empty(self) -> Bool:
-        return len(self.heap) == 0
+    def __lt__(self, other: Self) -> Bool:
+        if self.priority != other.priority:
+            return self.priority > other.priority
+        return self.vertex < other.vertex
 
-    def push(mut self, vertex: Int, priority: Int):
-        if priority >= self.best[vertex]:
-            return
-        self.best[vertex] = priority
-        self.heap.append((vertex, priority))
-        var i = len(self.heap) - 1
-        while i > 0:
-            var parent = (i - 1) // 2
-            if self.heap[parent][1] <= priority:
-                break
-            var tmp = self.heap[i]
-            self.heap[i] = self.heap[parent]
-            self.heap[parent] = tmp
-            i = parent
-
-    def pop(mut self) -> Tuple[Int, Int]:
-        var min_val = self.heap[0]
-        var last = self.heap[len(self.heap) - 1]
-        _ = self.heap.pop()
-        if len(self.heap) > 0:
-            self.heap[0] = last
-            var i = 0
-            while True:
-                var left = 2 * i + 1
-                var right = 2 * i + 2
-                var smallest = i
-                if (
-                    left < len(self.heap)
-                    and self.heap[left][1] < self.heap[smallest][1]
-                ):
-                    smallest = left
-                if (
-                    right < len(self.heap)
-                    and self.heap[right][1] < self.heap[smallest][1]
-                ):
-                    smallest = right
-                if smallest == i:
-                    break
-                var tmp = self.heap[i]
-                self.heap[i] = self.heap[smallest]
-                self.heap[smallest] = tmp
-                i = smallest
-        return min_val
+    def __eq__(self, other: Self) -> Bool:
+        return self.priority == other.priority and self.vertex == other.vertex
 
 
 struct MazeGenerator(Benchmark, Movable):
@@ -142,29 +104,27 @@ struct MazeGenerator(Benchmark, Movable):
     def _link_neighbors(mut self, mut helper: Helper):
         for y in range(self.h):
             for x in range(self.w):
-                if x == 0 or y == 0 or x == self.w - 1 or y == self.h - 1:
-                    self.cells[y][x].kind = MAZE_BORDER
-
-        for y in range(1, self.h - 1):
-            for x in range(1, self.w - 1):
                 ref cell = self.cells[y][x]
 
-                cell.neighbors = List[Tuple[Int, Int]](capacity=4)
-                cell.neighbor_count = 0
+                if x == 0 or y == 0 or x == self.w - 1 or y == self.h - 1:
+                    cell.kind = MAZE_BORDER
+                else:
+                    cell.neighbors = List[Tuple[Int, Int]](capacity=4)
+                    cell.neighbor_count = 0
 
-                cell.neighbors.append((y - 1, x))
-                cell.neighbors.append((y + 1, x))
-                cell.neighbors.append((y, x + 1))
-                cell.neighbors.append((y, x - 1))
-                cell.neighbor_count = 4
+                    cell.neighbors.append((y - 1, x))
+                    cell.neighbors.append((y + 1, x))
+                    cell.neighbors.append((y, x + 1))
+                    cell.neighbors.append((y, x - 1))
+                    cell.neighbor_count = 4
 
-                for _ in range(4):
-                    var i = helper.next_int(4)
-                    var j = helper.next_int(4)
-                    if i != j:
-                        var tmp = cell.neighbors[i]
-                        cell.neighbors[i] = cell.neighbors[j]
-                        cell.neighbors[j] = tmp
+                    for _ in range(4):
+                        var i = helper.next_int(4)
+                        var j = helper.next_int(4)
+                        if i != j:
+                            var tmp = cell.neighbors[i]
+                            cell.neighbors[i] = cell.neighbors[j]
+                            cell.neighbors[j] = tmp
 
         self.cells[self.start_y][self.start_x].kind = MAZE_START
         self.cells[self.finish_y][self.finish_x].kind = MAZE_FINISH
@@ -234,15 +194,17 @@ struct MazeGenerator(Benchmark, Movable):
                 if self.cells[ny][nx].is_walkable():
                     walkable_count += 1
 
-            if walkable_count == 1:
-                self.cells[y][x].kind = MAZE_SPACE
+            if walkable_count != 1:
+                continue
 
-                for i in range(4):
-                    var neighbor = self.cells[y][x].neighbors[i]
-                    var ny = neighbor[0]
-                    var nx = neighbor[1]
-                    if self.cells[ny][nx].kind == MAZE_WALL:
-                        stack.append((ny, nx))
+            self.cells[y][x].kind = MAZE_SPACE
+
+            for i in range(4):
+                var neighbor = self.cells[y][x].neighbors[i]
+                var ny = neighbor[0]
+                var nx = neighbor[1]
+                if self.cells[ny][nx].kind == MAZE_WALL:
+                    stack.append((ny, nx))
 
     def _ensure_open_finish(mut self, y: Int, x: Int):
         self.cells[y][x].kind = MAZE_SPACE
@@ -283,6 +245,8 @@ struct MazeBFS(Benchmark, Movable):
     def prepare(mut self, mut helper: Helper) raises:
         self.generator.prepare(helper)
         self.generator._generate()
+        self.result = 0
+        self.path = List[Tuple[Int, Int]]()
 
     def run(mut self, iteration_id: Int, mut helper: Helper) raises:
         self.path = Self._bfs(
@@ -382,6 +346,8 @@ struct MazeAStar(Benchmark, Movable):
     def prepare(mut self, mut helper: Helper) raises:
         self.generator.prepare(helper)
         self.generator._generate()
+        self.result = 0
+        self.path = List[Tuple[Int, Int]]()
 
     def run(mut self, iteration_id: Int, mut helper: Helper) raises:
         self.path = Self._astar(
@@ -435,20 +401,16 @@ struct MazeAStar(Benchmark, Movable):
         var g_score = List[Int](length=size, fill=2147483647)
         var best_f = List[Int](length=size, fill=2147483647)
 
-        var open_set = _PriorityQueue(size)
+        var open_set = BinaryHeap[AStarEntry]()
 
         g_score[start_idx] = 0
         var f_start = MazeAStar._heuristic(sx, sy, tx, ty)
-        open_set.push(start_idx, f_start)
+        open_set.push(AStarEntry(f_start, start_idx))
         best_f[start_idx] = f_start
 
-        while not open_set.empty():
-            var cur = open_set.pop()
-            var current_idx = cur[0]
-            var f_val = cur[1]
-
-            if f_val != best_f[current_idx]:
-                continue
+        while len(open_set) > 0:
+            var entry = open_set.pop()
+            var current_idx = entry.vertex
 
             if current_idx == target_idx:
                 var result = List[Tuple[Int, Int]]()
@@ -487,8 +449,9 @@ struct MazeAStar(Benchmark, Movable):
                     var f_new = tentative_g + MazeAStar._heuristic(
                         nx, ny, tx, ty
                     )
+
                     if f_new < best_f[neighbor_idx]:
                         best_f[neighbor_idx] = f_new
-                        open_set.push(neighbor_idx, f_new)
+                        open_set.push(AStarEntry(f_new, neighbor_idx))
 
         return List[Tuple[Int, Int]]()

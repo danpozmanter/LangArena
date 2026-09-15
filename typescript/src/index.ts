@@ -3473,7 +3473,6 @@ export class Maze {
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
         const cell = this.cells[y][x];
-        cell.neighbors = [];
 
         if (x > 0 && y > 0 && x < this.width - 1 && y < this.height - 1) {
           cell.neighbors.push(this.cells[y - 1][x]);
@@ -3506,46 +3505,42 @@ export class Maze {
   }
 
   public dig(startCell: Cell): void {
-    const stack: Cell[] = [startCell];
+    const stack: Cell[] = new Array(this.width * this.height);
+    let size = 0;
+    stack[size++] = startCell;
 
-    while (stack.length > 0) {
-      const cell = stack.pop()!;
+    while (size > 0) {
+      const cell = stack[--size];
 
       let walkable = 0;
       for (const n of cell.neighbors) {
         if (isWalkable(n.kind)) walkable++;
       }
 
-      if (walkable === 1) {
-        cell.kind = CellKind.SPACE;
-        for (const n of cell.neighbors) {
-          if (n.kind === CellKind.WALL) {
-            stack.push(n);
-          }
+      if (walkable !== 1) continue;
+
+      cell.kind = CellKind.SPACE;
+      for (const n of cell.neighbors) {
+        if (n.kind === CellKind.WALL) {
+          stack[size++] = n;
         }
       }
     }
   }
 
-  public ensureOpenFinish(startCell: Cell): void {
-    const stack: Cell[] = [startCell];
+  public ensureOpenFinish(cell: Cell): void {
+    cell.kind = CellKind.SPACE;
 
-    while (stack.length > 0) {
-      const cell = stack.pop()!;
+    let walkable = 0;
+    for (const n of cell.neighbors) {
+      if (isWalkable(n.kind)) walkable++;
+    }
 
-      cell.kind = CellKind.SPACE;
+    if (walkable > 1) return;
 
-      let walkable = 0;
-      for (const n of cell.neighbors) {
-        if (isWalkable(n.kind)) walkable++;
-      }
-
-      if (walkable > 1) continue;
-
-      for (const n of cell.neighbors) {
-        if (n.kind === CellKind.WALL) {
-          stack.push(n);
-        }
+    for (const n of cell.neighbors) {
+      if (n.kind === CellKind.WALL) {
+        this.ensureOpenFinish(n);
       }
     }
   }
@@ -3678,8 +3673,9 @@ export class MazeBFS extends Benchmark {
     pathNodes.push({ cell: start, parent: -1 });
     queue.push(0);
 
-    while (queue.length > 0) {
-      const pathId = queue.shift()!;
+    let head = 0;
+    while (head < queue.length) {
+      const pathId = queue[head++];
       const node = pathNodes[pathId];
 
       for (const neighbor of node.cell.neighbors) {
@@ -3720,6 +3716,68 @@ export class MazeBFS extends Benchmark {
   }
 }
 
+interface AStarEntry {
+  priority: number;
+  vertex: number;
+}
+
+class AStarPriorityQueue {
+  private heap: AStarEntry[] = [];
+  private size: number = 0;
+
+  public isEmpty(): boolean {
+    return this.size === 0;
+  }
+
+  public push(vertex: number, priority: number): void {
+    let i = this.size;
+    this.size++;
+
+    if (i >= this.heap.length) {
+      this.heap.push({ priority, vertex });
+    } else {
+      this.heap[i] = { priority, vertex };
+    }
+
+    while (i > 0) {
+      const parent = Math.floor((i - 1) / 2);
+      if (this.heap[parent].priority <= priority) break;
+      this.heap[i] = this.heap[parent];
+      i = parent;
+    }
+    this.heap[i] = { priority, vertex };
+  }
+
+  public pop(): AStarEntry {
+    const min = this.heap[0];
+    this.size--;
+
+    if (this.size > 0) {
+      const last = this.heap[this.size];
+      let i = 0;
+      while (true) {
+        const left = 2 * i + 1;
+        const right = 2 * i + 2;
+        let smallest = i;
+
+        if (left < this.size && this.heap[left].priority < this.heap[smallest].priority) {
+          smallest = left;
+        }
+        if (right < this.size && this.heap[right].priority < this.heap[smallest].priority) {
+          smallest = right;
+        }
+        if (smallest === i) break;
+
+        this.heap[i] = this.heap[smallest];
+        i = smallest;
+      }
+      this.heap[i] = last;
+    }
+
+    return min;
+  }
+}
+
 export class MazeAStar extends Benchmark {
   private resultVal: number = 0;
   private width: number;
@@ -3757,75 +3815,23 @@ export class MazeAStar extends Benchmark {
 
     const size = this.width * this.height;
 
-    const gScore = new Int32Array(size).fill(0x7fffffff);
-    const closed = new Uint8Array(size);
     const cameFrom = new Int32Array(size).fill(-1);
+    const gScore = new Int32Array(size).fill(0x7fffffff);
+    const bestF = new Int32Array(size).fill(0x7fffffff);
 
     const startIdx = this.idx(start.y, start.x);
     const targetIdx = this.idx(target.y, target.x);
 
+    const openSet = new AStarPriorityQueue();
+
     gScore[startIdx] = 0;
-
-    const heapVertices: number[] = [];
-    const heapPriorities: number[] = [];
-    const inOpenSet = new Uint8Array(size);
-
-    const heapPush = (vertex: number, priority: number) => {
-      let i = heapVertices.length;
-      heapVertices.push(vertex);
-      heapPriorities.push(priority);
-
-      while (i > 0) {
-        const parent = Math.floor((i - 1) / 2);
-        if (heapPriorities[parent] <= heapPriorities[i]) break;
-        [heapVertices[i], heapVertices[parent]] = [heapVertices[parent], heapVertices[i]];
-        [heapPriorities[i], heapPriorities[parent]] = [heapPriorities[parent], heapPriorities[i]];
-        i = parent;
-      }
-    };
-
-    const heapPop = (): number | undefined => {
-      if (heapVertices.length === 0) return undefined;
-
-      const result = heapVertices[0];
-      heapVertices[0] = heapVertices[heapVertices.length - 1];
-      heapPriorities[0] = heapPriorities[heapPriorities.length - 1];
-      heapVertices.pop();
-      heapPriorities.pop();
-
-      let i = 0;
-      const n = heapVertices.length;
-      while (true) {
-        const left = 2 * i + 1;
-        const right = 2 * i + 2;
-        let smallest = i;
-
-        if (left < n && heapPriorities[left] < heapPriorities[smallest]) {
-          smallest = left;
-        }
-        if (right < n && heapPriorities[right] < heapPriorities[smallest]) {
-          smallest = right;
-        }
-        if (smallest === i) break;
-
-        [heapVertices[i], heapVertices[smallest]] = [heapVertices[smallest], heapVertices[i]];
-        [heapPriorities[i], heapPriorities[smallest]] = [
-          heapPriorities[smallest],
-          heapPriorities[i],
-        ];
-        i = smallest;
-      }
-
-      return result;
-    };
-
     const fStart = this.heuristic(start, target);
-    heapPush(startIdx, fStart);
-    inOpenSet[startIdx] = 1;
+    openSet.push(startIdx, fStart);
+    bestF[startIdx] = fStart;
 
-    while (heapVertices.length > 0) {
-      const currentIdx = heapPop()!;
-      inOpenSet[currentIdx] = 0;
+    while (!openSet.isEmpty()) {
+      const entry = openSet.pop();
+      const currentIdx = entry.vertex;
 
       if (currentIdx === targetIdx) {
         const result: Cell[] = [];
@@ -3841,8 +3847,6 @@ export class MazeAStar extends Benchmark {
         return result.reverse();
       }
 
-      closed[currentIdx] = 1;
-
       const currentY = Math.floor(currentIdx / this.width);
       const currentX = currentIdx % this.width;
       const currentCell = this.maze!.cells[currentY][currentX];
@@ -3852,19 +3856,16 @@ export class MazeAStar extends Benchmark {
         if (!isWalkable(neighbor.kind)) continue;
 
         const neighborIdx = this.idx(neighbor.y, neighbor.x);
-
-        if (closed[neighborIdx]) continue;
-
         const tentativeG = currentG + 1;
 
         if (tentativeG < gScore[neighborIdx]) {
           cameFrom[neighborIdx] = currentIdx;
           gScore[neighborIdx] = tentativeG;
-          const f = tentativeG + this.heuristic(neighbor, target);
+          const fNew = tentativeG + this.heuristic(neighbor, target);
 
-          if (inOpenSet[neighborIdx] === 0) {
-            heapPush(neighborIdx, f);
-            inOpenSet[neighborIdx] = 1;
+          if (fNew < bestF[neighborIdx]) {
+            bestF[neighborIdx] = fNew;
+            openSet.push(neighborIdx, fNew);
           }
         }
       }
@@ -3889,7 +3890,6 @@ export class MazeAStar extends Benchmark {
     return (this.resultVal + this.midCellChecksum(this.path)) >>> 0;
   }
 }
-
 class Compress {
   static generateTestData(size: bigint): Uint8Array {
     const pattern = new TextEncoder().encode("ABRACADABRA");

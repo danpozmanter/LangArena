@@ -6,6 +6,7 @@ import 'dart:isolate';
 import 'dart:async';
 import 'dart:collection';
 import 'package:csv/csv.dart';
+import 'package:collection/collection.dart';
 
 class Helper {
   static const int IM = 139968;
@@ -2237,7 +2238,7 @@ class PriorityQueueItem implements Comparable<PriorityQueueItem> {
   }
 }
 
-class PriorityQueue<E extends Comparable<E>> {
+class PriorityQueue2<E extends Comparable<E>> {
   final List<E> _heap = [];
 
   int get length => _heap.length;
@@ -2314,7 +2315,7 @@ class GraphPathAStar extends GraphPathBenchmark {
     gScore[start] = 0;
     fScore[start] = _heuristic(start, target);
 
-    final openSet = PriorityQueue<PriorityQueueItem>();
+    final openSet = PriorityQueue2<PriorityQueueItem>();
     final inOpenSet = Uint8List(_graph.vertices);
 
     openSet.add(PriorityQueueItem(start, fScore[start]));
@@ -3116,73 +3117,6 @@ class GameOfLife extends Benchmark {
   String get benchmarkName => 'Etc::GameOfLife';
 }
 
-enum CellKind {
-  wall(0),
-  space(1),
-  start(2),
-  finish(3),
-  border(4),
-  path(5);
-
-  const CellKind(this.value);
-  final int value;
-}
-
-class Cell {
-  CellKind kind;
-  List<Cell> neighbors;
-  int x;
-  int y;
-
-  Cell(this.x, this.y)
-      : kind = CellKind.wall,
-        neighbors = [];
-
-  bool isWalkable() {
-    return kind == CellKind.space ||
-        kind == CellKind.start ||
-        kind == CellKind.finish;
-  }
-
-  void dig() {
-    int walkableNeighbors = 0;
-    for (int i = 0; i < neighbors.length; i++) {
-      if (neighbors[i].isWalkable()) walkableNeighbors++;
-    }
-    if (walkableNeighbors != 1) return;
-
-    kind = CellKind.space;
-
-    for (int i = 0; i < neighbors.length; i++) {
-      if (neighbors[i].kind == CellKind.wall) {
-        neighbors[i].dig();
-      }
-    }
-  }
-
-  void ensureOpenFinish() {
-    kind = CellKind.space;
-
-    int walkableNeighbors = 0;
-    for (int i = 0; i < neighbors.length; i++) {
-      if (neighbors[i].isWalkable()) walkableNeighbors++;
-    }
-    if (walkableNeighbors > 1) return;
-
-    for (int i = 0; i < neighbors.length; i++) {
-      if (neighbors[i].kind == CellKind.wall) {
-        neighbors[i].ensureOpenFinish();
-      }
-    }
-  }
-
-  void reset() {
-    if (kind == CellKind.space) {
-      kind = CellKind.wall;
-    }
-  }
-}
-
 enum MazeCellKind {
   wall(0),
   space(1),
@@ -3240,12 +3174,6 @@ class Maze {
   }
 
   void updateNeighbors() {
-    for (var row in cells) {
-      for (var cell in row) {
-        cell.neighbors.clear();
-      }
-    }
-
     for (int y = 0; y < height; y++) {
       for (int x = 0; x < width; x++) {
         var cell = cells[y][x];
@@ -3306,26 +3234,19 @@ class Maze {
     }
   }
 
-  void ensureOpenFinish(MazeCell startCell) {
-    List<MazeCell> stack = [];
-    stack.add(startCell);
+  void ensureOpenFinish(MazeCell cell) {
+    cell.kind = MazeCellKind.space;
 
-    while (stack.isNotEmpty) {
-      var cell = stack.removeLast();
+    int walkable = 0;
+    for (var n in cell.neighbors) {
+      if (n.kind.isWalkable) walkable++;
+    }
 
-      cell.kind = MazeCellKind.space;
+    if (walkable > 1) return;
 
-      int walkable = 0;
-      for (var n in cell.neighbors) {
-        if (n.kind.isWalkable) walkable++;
-      }
-
-      if (walkable > 1) continue;
-
-      for (var n in cell.neighbors) {
-        if (n.kind == MazeCellKind.wall) {
-          stack.add(n);
-        }
+    for (var n in cell.neighbors) {
+      if (n.kind == MazeCellKind.wall) {
+        ensureOpenFinish(n);
       }
     }
   }
@@ -3399,21 +3320,6 @@ class _BfsPathNode {
   _BfsPathNode(this.cell, this.parent);
 }
 
-class _AStarItem implements Comparable<_AStarItem> {
-  final int priority;
-  final int vertex;
-
-  _AStarItem(this.priority, this.vertex);
-
-  @override
-  int compareTo(_AStarItem other) {
-    if (priority != other.priority) {
-      return priority.compareTo(other.priority);
-    }
-    return vertex.compareTo(other.vertex);
-  }
-}
-
 class MazeGenerator extends Benchmark {
   late final int width;
   late final int height;
@@ -3464,6 +3370,8 @@ class MazeBFS extends Benchmark {
   @override
   void prepare() {
     maze.generate();
+    resultVal = 0;
+    path = [];
   }
 
   List<MazeCell> bfs(MazeCell start, MazeCell target) {
@@ -3520,6 +3428,12 @@ class MazeBFS extends Benchmark {
   }
 }
 
+class _AStarEntry {
+  final int priority;
+  final int vertex;
+  _AStarEntry(this.priority, this.vertex);
+}
+
 class MazeAStar extends Benchmark {
   late final int width;
   late final int height;
@@ -3539,6 +3453,8 @@ class MazeAStar extends Benchmark {
   @override
   void prepare() {
     maze.generate();
+    resultVal = 0;
+    path = [];
   }
 
   int heuristic(MazeCell a, MazeCell b) {
@@ -3559,16 +3475,18 @@ class MazeAStar extends Benchmark {
     int startIdx = idx(start.y, start.x);
     int targetIdx = idx(target.y, target.x);
 
-    var openSet = PriorityQueue<_AStarItem>();
+    var openSet = PriorityQueue<_AStarEntry>(
+      (a, b) => a.priority.compareTo(b.priority),
+    );
 
     gScore[startIdx] = 0;
     int fStart = heuristic(start, target);
-    openSet.add(_AStarItem(fStart, startIdx));
+    openSet.add(_AStarEntry(fStart, startIdx));
     bestF[startIdx] = fStart;
 
     while (openSet.isNotEmpty) {
-      var current = openSet.removeFirst();
-      int currentIdx = current.vertex;
+      var entry = openSet.removeFirst();
+      int currentIdx = entry.vertex;
 
       if (currentIdx == targetIdx) {
         var result = <MazeCell>[];
@@ -3600,7 +3518,7 @@ class MazeAStar extends Benchmark {
 
           if (fNew < bestF[neighborIdx]) {
             bestF[neighborIdx] = fNew;
-            openSet.add(_AStarItem(fNew, neighborIdx));
+            openSet.add(_AStarEntry(fNew, neighborIdx));
           }
         }
       }

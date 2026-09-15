@@ -56,7 +56,6 @@ object MazeTypes {
       for (y <- 0 until h) {
         for (x <- 0 until w) {
           val cell = cells(y)(x)
-          cell.neighbors.clear()
 
           if (x > 0 && y > 0 && x < w - 1 && y < h - 1) {
             cell.addNeighbor(cells(y - 1)(x))
@@ -98,7 +97,8 @@ object MazeTypes {
           if (n.isWalkable) walkable += 1
         }
 
-        if (walkable == 1) {
+        if (walkable != 1) {}
+        else {
           cell.kind = CellKind.SPACE
           for (n <- cell.neighbors) {
             if (n.kind == CellKind.WALL) {
@@ -109,17 +109,15 @@ object MazeTypes {
       }
     }
 
-    def ensureOpenFinish(startCell: Cell): Unit = {
-      val stack = mutable.Stack[Cell]()
-      stack.push(startCell)
+    def ensureOpenFinish(cell: Cell): Unit = {
+      cell.kind = CellKind.SPACE
 
-      while (stack.nonEmpty) {
-        val cell = stack.pop()
-        cell.kind = CellKind.SPACE
+      val walkable = cell.neighbors.count(_.isWalkable)
+      if (walkable > 1) return
 
-        val walkable = cell.neighbors.count(_.isWalkable)
-        if (walkable <= 1) {
-          cell.neighbors.filter(_.kind == CellKind.WALL).foreach(stack.push)
+      for (n <- cell.neighbors) {
+        if (n.kind == CellKind.WALL) {
+          ensureOpenFinish(n)
         }
       }
     }
