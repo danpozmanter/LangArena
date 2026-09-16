@@ -31,60 +31,21 @@ struct _Graph(Movable):
                     self.add_edge(v, u)
 
 
-struct _PriorityQueue(Movable):
-    var heap: List[Tuple[Int, Int]]
-    var best: List[Int]
+struct AStarEntry(Comparable, Copyable, Movable):
+    var priority: Int
+    var vertex: Int
 
-    def __init__(out self, size: Int):
-        self.heap = List[Tuple[Int, Int]]()
-        self.best = List[Int](length=size, fill=2147483647)
+    def __init__(out self, priority: Int, vertex: Int):
+        self.priority = priority
+        self.vertex = vertex
 
-    def empty(self) -> Bool:
-        return len(self.heap) == 0
+    def __lt__(self, other: Self) -> Bool:
+        if self.priority != other.priority:
+            return self.priority > other.priority
+        return self.vertex > other.vertex
 
-    def push(mut self, vertex: Int, priority: Int):
-        if priority >= self.best[vertex]:
-            return
-        self.best[vertex] = priority
-        self.heap.append((vertex, priority))
-        var i = len(self.heap) - 1
-        while i > 0:
-            var parent = (i - 1) // 2
-            if self.heap[parent][1] <= priority:
-                break
-            var tmp = self.heap[i]
-            self.heap[i] = self.heap[parent]
-            self.heap[parent] = tmp
-            i = parent
-
-    def pop(mut self) -> Tuple[Int, Int]:
-        var min_val = self.heap[0]
-        var last = self.heap[len(self.heap) - 1]
-        _ = self.heap.pop()
-        if len(self.heap) > 0:
-            self.heap[0] = last
-            var i = 0
-            while True:
-                var left = 2 * i + 1
-                var right = 2 * i + 2
-                var smallest = i
-                if (
-                    left < len(self.heap)
-                    and self.heap[left][1] < self.heap[smallest][1]
-                ):
-                    smallest = left
-                if (
-                    right < len(self.heap)
-                    and self.heap[right][1] < self.heap[smallest][1]
-                ):
-                    smallest = right
-                if smallest == i:
-                    break
-                var tmp = self.heap[i]
-                self.heap[i] = self.heap[smallest]
-                self.heap[smallest] = tmp
-                i = smallest
-        return min_val
+    def __eq__(self, other: Self) -> Bool:
+        return self.priority == other.priority and self.vertex == other.vertex
 
 
 struct GraphBFS(Benchmark, Movable):
@@ -236,38 +197,37 @@ struct GraphAStar(Benchmark, Movable):
         if start == target:
             return 0
 
-        var g_score = List[Int](length=graph.vertices, fill=2147483647)
+        var n = graph.vertices
+        var INF = 2147483647
+
+        var g_score = List[Int](length=n, fill=INF)
+        var best_f = List[Int](length=n, fill=INF)
+
         g_score[start] = 0
+        var f_start = target - start
+        best_f[start] = f_start
 
-        var open_set = _PriorityQueue(graph.vertices)
-        open_set.push(start, target - start)
+        from std.collections import BinaryHeap
 
-        var in_open = List[Bool](length=graph.vertices, fill=False)
-        in_open[start] = True
+        var open_set = BinaryHeap[AStarEntry]()
+        open_set.push(AStarEntry(f_start, start))
 
-        var closed = List[Bool](length=graph.vertices, fill=False)
-
-        while not open_set.empty():
-            var cur = open_set.pop()
-            var current = cur[0]
-            closed[current] = True
-            in_open[current] = False
+        while len(open_set) > 0:
+            var entry = open_set.pop()
+            var current = entry.vertex
 
             if current == target:
                 return g_score[current]
 
             for neighbor in graph.adj[current]:
-                if closed[neighbor]:
-                    continue
-
                 var tentative_g = g_score[current] + 1
 
                 if tentative_g < g_score[neighbor]:
                     g_score[neighbor] = tentative_g
-                    var f = tentative_g + (target - neighbor)
+                    var f_new = tentative_g + (target - neighbor)
 
-                    if not in_open[neighbor]:
-                        open_set.push(neighbor, f)
-                        in_open[neighbor] = True
+                    if f_new < best_f[neighbor]:
+                        best_f[neighbor] = f_new
+                        open_set.push(AStarEntry(f_new, neighbor))
 
         return -1

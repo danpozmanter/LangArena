@@ -1786,7 +1786,6 @@ module Graph
 
     def prepare
       @graph.generate_random
-      total_edges = @graph.adj.sum(&.size) // 2
     end
 
     def test : Int64
@@ -1942,36 +1941,33 @@ module Graph
     private def astar_shortest_path(start, target)
       return 0 if start == target
 
-      g_score = Array.new(@graph.vertices, Int32::MAX)
+      n = @graph.vertices
+
+      g_score = Array.new(n, Int32::MAX)
+      best_f = Array.new(n, Int32::MAX)
+
       g_score[start] = 0
+      f_start = heuristic(start, target)
+      best_f[start] = f_start
 
       open_set = PriorityQueue.new
-      open_set.push(start, heuristic(start, target))
-
-      in_open_set = Array.new(@graph.vertices, false)
-      in_open_set[start] = true
-
-      closed = Array.new(@graph.vertices, false)
+      open_set.push(start, f_start)
 
       while !open_set.empty?
         current, _ = open_set.pop
-        closed[current] = true
-        in_open_set[current] = false
 
         return g_score[current] if current == target
 
         @graph.adj[current].each do |neighbor|
-          next if closed[neighbor]
-
           tentative_g = g_score[current] + 1
 
           if tentative_g < g_score[neighbor]
             g_score[neighbor] = tentative_g
-            f = tentative_g + heuristic(neighbor, target)
+            f_new = tentative_g + heuristic(neighbor, target)
 
-            unless in_open_set[neighbor]
-              open_set.push(neighbor, f)
-              in_open_set[neighbor] = true
+            if f_new < best_f[neighbor]
+              best_f[neighbor] = f_new
+              open_set.push(neighbor, f_new)
             end
           end
         end

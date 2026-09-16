@@ -635,14 +635,14 @@ class Tape {
   }
 }
 
-const BF_CHAR_PLUS          = "+".charCodeAt(0);
-const BF_CHAR_MINUS         = "-".charCodeAt(0);
-const BF_CHAR_LESS          = "<".charCodeAt(0);
-const BF_CHAR_GREATER       = ">".charCodeAt(0);
-const BF_CHAR_LEFT_BRACKET  = "[".charCodeAt(0);
+const BF_CHAR_PLUS = "+".charCodeAt(0);
+const BF_CHAR_MINUS = "-".charCodeAt(0);
+const BF_CHAR_LESS = "<".charCodeAt(0);
+const BF_CHAR_GREATER = ">".charCodeAt(0);
+const BF_CHAR_LEFT_BRACKET = "[".charCodeAt(0);
 const BF_CHAR_RIGHT_BRACKET = "]".charCodeAt(0);
-const BF_CHAR_DOT           = ".".charCodeAt(0);
-const BF_CHAR_COMMA         = ",".charCodeAt(0);
+const BF_CHAR_DOT = ".".charCodeAt(0);
+const BF_CHAR_COMMA = ",".charCodeAt(0);
 
 class Program {
   private commands: Uint8Array;
@@ -2435,6 +2435,72 @@ export class GraphPathDFS extends GraphPathBenchmark {
   }
 }
 
+class GraphAStarPriorityQueue {
+  private heapVertices: number[] = [];
+  private heapPriorities: number[] = [];
+  private size: number = 0;
+
+  isEmpty(): boolean {
+    return this.size === 0;
+  }
+
+  push(vertex: number, priority: number): void {
+    let i = this.size;
+    this.size++;
+
+    if (i >= this.heapVertices.length) {
+      this.heapVertices.push(vertex);
+      this.heapPriorities.push(priority);
+    } else {
+      this.heapVertices[i] = vertex;
+      this.heapPriorities[i] = priority;
+    }
+
+    while (i > 0) {
+      const parent = Math.floor((i - 1) / 2);
+      if (this.heapPriorities[parent] <= priority) break;
+      this.heapVertices[i] = this.heapVertices[parent];
+      this.heapPriorities[i] = this.heapPriorities[parent];
+      i = parent;
+    }
+    this.heapVertices[i] = vertex;
+    this.heapPriorities[i] = priority;
+  }
+
+  pop(): number {
+    const result = this.heapVertices[0];
+    this.size--;
+
+    if (this.size > 0) {
+      const lastVertex = this.heapVertices[this.size];
+      const lastPriority = this.heapPriorities[this.size];
+      let i = 0;
+
+      while (true) {
+        const left = 2 * i + 1;
+        const right = 2 * i + 2;
+        let smallest = i;
+
+        if (left < this.size && this.heapPriorities[left] < this.heapPriorities[smallest]) {
+          smallest = left;
+        }
+        if (right < this.size && this.heapPriorities[right] < this.heapPriorities[smallest]) {
+          smallest = right;
+        }
+        if (smallest === i) break;
+
+        this.heapVertices[i] = this.heapVertices[smallest];
+        this.heapPriorities[i] = this.heapPriorities[smallest];
+        i = smallest;
+      }
+      this.heapVertices[i] = lastVertex;
+      this.heapPriorities[i] = lastPriority;
+    }
+
+    return result;
+  }
+}
+
 export class GraphPathAStar extends GraphPathBenchmark {
   run(_iteration_id: number): void {
     const length = this.aStarShortestPath(0, this.graph.getVertices() - 1);
@@ -2448,90 +2514,35 @@ export class GraphPathAStar extends GraphPathBenchmark {
   private aStarShortestPath(start: number, target: number): number {
     if (start === target) return 0;
 
-    const vertices = this.graph.getVertices();
-    const gScore = new Array(vertices).fill(Number.MAX_SAFE_INTEGER);
-    const closed = new Uint8Array(vertices);
+    const n = this.graph.getVertices();
+
+    const gScore = new Array(n).fill(Number.MAX_SAFE_INTEGER);
+    const bestF = new Array(n).fill(Number.MAX_SAFE_INTEGER);
 
     gScore[start] = 0;
+    const fStart = this.heuristic(start, target);
+    bestF[start] = fStart;
 
-    const heapVertices: number[] = [];
-    const heapPriorities: number[] = [];
-    const inOpenSet = new Uint8Array(vertices);
+    const openSet = new GraphAStarPriorityQueue();
+    openSet.push(start, fStart);
 
-    const heapPush = (vertex: number, priority: number) => {
-      let i = heapVertices.length;
-      heapVertices.push(vertex);
-      heapPriorities.push(priority);
-
-      while (i > 0) {
-        const parent = Math.floor((i - 1) / 2);
-        if (heapPriorities[parent] <= heapPriorities[i]) break;
-        [heapVertices[i], heapVertices[parent]] = [heapVertices[parent], heapVertices[i]];
-        [heapPriorities[i], heapPriorities[parent]] = [heapPriorities[parent], heapPriorities[i]];
-        i = parent;
-      }
-    };
-
-    const heapPop = (): number | undefined => {
-      if (heapVertices.length === 0) return undefined;
-
-      const result = heapVertices[0];
-      heapVertices[0] = heapVertices[heapVertices.length - 1];
-      heapPriorities[0] = heapPriorities[heapPriorities.length - 1];
-      heapVertices.pop();
-      heapPriorities.pop();
-
-      let i = 0;
-      const n = heapVertices.length;
-      while (true) {
-        const left = 2 * i + 1;
-        const right = 2 * i + 2;
-        let smallest = i;
-
-        if (left < n && heapPriorities[left] < heapPriorities[smallest]) {
-          smallest = left;
-        }
-        if (right < n && heapPriorities[right] < heapPriorities[smallest]) {
-          smallest = right;
-        }
-        if (smallest === i) break;
-
-        [heapVertices[i], heapVertices[smallest]] = [heapVertices[smallest], heapVertices[i]];
-        [heapPriorities[i], heapPriorities[smallest]] = [
-          heapPriorities[smallest],
-          heapPriorities[i],
-        ];
-        i = smallest;
-      }
-
-      return result;
-    };
-
-    heapPush(start, this.heuristic(start, target));
-    inOpenSet[start] = 1;
-
-    while (heapVertices.length > 0) {
-      const current = heapPop()!;
-      inOpenSet[current] = 0;
+    while (!openSet.isEmpty()) {
+      const current = openSet.pop();
 
       if (current === target) {
         return gScore[current];
       }
 
-      closed[current] = 1;
-
       for (const neighbor of this.graph.getAdjacency()[current]) {
-        if (closed[neighbor]) continue;
-
         const tentativeG = gScore[current] + 1;
 
         if (tentativeG < gScore[neighbor]) {
           gScore[neighbor] = tentativeG;
-          const f = tentativeG + this.heuristic(neighbor, target);
+          const fNew = tentativeG + this.heuristic(neighbor, target);
 
-          if (inOpenSet[neighbor] === 0) {
-            heapPush(neighbor, f);
-            inOpenSet[neighbor] = 1;
+          if (fNew < bestF[neighbor]) {
+            bestF[neighbor] = fNew;
+            openSet.push(neighbor, fNew);
           }
         }
       }

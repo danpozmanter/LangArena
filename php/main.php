@@ -3525,9 +3525,9 @@ class GraphPriorityQueue
     public function push(int $vertex, int $priority): void
     {
         if ($this->size >= count($this->heap)) {
-            $this->heap[] = [$vertex, $priority];
+            $this->heap[] = [$priority, $vertex];
         } else {
-            $this->heap[$this->size] = [$vertex, $priority];
+            $this->heap[$this->size] = [$priority, $vertex];
         }
 
         $i = $this->size;
@@ -3535,12 +3535,12 @@ class GraphPriorityQueue
 
         while ($i > 0) {
             $parent = ($i - 1) >> 1;
-            if ($this->heap[$parent][1] <= $priority)
+            if ($this->heap[$parent][0] <= $priority)
                 break;
             $this->heap[$i] = $this->heap[$parent];
             $i = $parent;
         }
-        $this->heap[$i] = [$vertex, $priority];
+        $this->heap[$i] = [$priority, $vertex];
     }
 
     public function pop(): array
@@ -3557,10 +3557,10 @@ class GraphPriorityQueue
                 $right = 2 * $i + 2;
                 $smallest = $i;
 
-                if ($left < $this->size && $this->heap[$left][1] < $this->heap[$smallest][1]) {
+                if ($left < $this->size && $this->heap[$left][0] < $this->heap[$smallest][0]) {
                     $smallest = $left;
                 }
-                if ($right < $this->size && $this->heap[$right][1] < $this->heap[$smallest][1]) {
+                if ($right < $this->size && $this->heap[$right][0] < $this->heap[$smallest][0]) {
                     $smallest = $right;
                 }
 
@@ -3600,42 +3600,35 @@ class GraphAStar extends GraphPathBenchmark
         if ($start === $target)
             return 0;
 
-        $vertices = $this->graph->vertices;
+        $n = $this->graph->vertices;
 
-        $gScore = array_fill(0, $vertices, PHP_INT_MAX);
+        $gScore = array_fill(0, $n, PHP_INT_MAX);
+        $bestF = array_fill(0, $n, PHP_INT_MAX);
+
         $gScore[$start] = 0;
+        $fStart = $this->heuristic($start, $target);
+        $bestF[$start] = $fStart;
 
         $openSet = new GraphPriorityQueue();
-        $openSet->push($start, $this->heuristic($start, $target));
-
-        $inOpenSet = array_fill(0, $vertices, false);
-        $inOpenSet[$start] = true;
-
-        $closed = array_fill(0, $vertices, false);
+        $openSet->push($start, $fStart);
 
         while (!$openSet->isEmpty()) {
-            [$current, $_] = $openSet->pop();
-
-            $closed[$current] = true;
-            $inOpenSet[$current] = false;
+            [$priority, $current] = $openSet->pop();
 
             if ($current === $target) {
                 return $gScore[$current];
             }
 
             foreach ($this->graph->adj[$current] as $neighbor) {
-                if ($closed[$neighbor])
-                    continue;
-
                 $tentativeG = $gScore[$current] + 1;
 
                 if ($tentativeG < $gScore[$neighbor]) {
                     $gScore[$neighbor] = $tentativeG;
-                    $f = $tentativeG + $this->heuristic($neighbor, $target);
+                    $fNew = $tentativeG + $this->heuristic($neighbor, $target);
 
-                    if (!$inOpenSet[$neighbor]) {
-                        $openSet->push($neighbor, $f);
-                        $inOpenSet[$neighbor] = true;
+                    if ($fNew < $bestF[$neighbor]) {
+                        $bestF[$neighbor] = $fNew;
+                        $openSet->push($neighbor, $fNew);
                     }
                 }
             }

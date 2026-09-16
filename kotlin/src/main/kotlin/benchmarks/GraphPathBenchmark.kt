@@ -135,14 +135,19 @@ class GraphPathDFS : GraphPathBenchmark() {
     override fun name(): String = "Graph::DFS"
 }
 
-class GraphPathAStar : GraphPathBenchmark() {
-    private data class Node(
-        val vertex: Int,
-        val priority: Int,
-    ) : Comparable<Node> {
-        override fun compareTo(other: Node): Int = this.priority.compareTo(other.priority)
-    }
+class GraphPriorityQueueItem(
+    val priority: Int,
+    val vertex: Int,
+) : Comparable<GraphPriorityQueueItem> {
+    override fun compareTo(other: GraphPriorityQueueItem): Int =
+        if (priority != other.priority) {
+            priority.compareTo(other.priority)
+        } else {
+            vertex.compareTo(other.vertex)
+        }
+}
 
+class GraphPathAStar : GraphPathBenchmark() {
     private fun heuristic(
         v: Int,
         target: Int,
@@ -154,41 +159,36 @@ class GraphPathAStar : GraphPathBenchmark() {
     ): Int {
         if (start == target) return 0
 
-        val gScore = IntArray(graph.vertices) { Int.MAX_VALUE }
-        val fScore = IntArray(graph.vertices) { Int.MAX_VALUE }
-        val closed = BooleanArray(graph.vertices)
+        val n = graph.vertices
+
+        val gScore = IntArray(n) { Int.MAX_VALUE }
+        val bestF = IntArray(n) { Int.MAX_VALUE }
 
         gScore[start] = 0
-        fScore[start] = heuristic(start, target)
+        val fStart = heuristic(start, target)
+        bestF[start] = fStart
 
-        val openSet = PriorityQueue<Node>()
-        val inOpenSet = BooleanArray(graph.vertices)
-
-        openSet.add(Node(start, fScore[start]))
-        inOpenSet[start] = true
+        val openSet = PriorityQueue<GraphPriorityQueueItem>()
+        openSet.add(GraphPriorityQueueItem(fStart, start))
 
         while (openSet.isNotEmpty()) {
             val current = openSet.poll()
-            inOpenSet[current.vertex] = false
+            val currentVertex = current.vertex
 
-            if (current.vertex == target) {
-                return gScore[current.vertex]
+            if (currentVertex == target) {
+                return gScore[currentVertex]
             }
 
-            closed[current.vertex] = true
-
-            for (neighbor in graph.adj[current.vertex]) {
-                if (closed[neighbor]) continue
-
-                val tentativeG = gScore[current.vertex] + 1
+            for (neighbor in graph.adj[currentVertex]) {
+                val tentativeG = gScore[currentVertex] + 1
 
                 if (tentativeG < gScore[neighbor]) {
                     gScore[neighbor] = tentativeG
-                    fScore[neighbor] = tentativeG + heuristic(neighbor, target)
+                    val fNew = tentativeG + heuristic(neighbor, target)
 
-                    if (!inOpenSet[neighbor]) {
-                        openSet.add(Node(neighbor, fScore[neighbor]))
-                        inOpenSet[neighbor] = true
+                    if (fNew < bestF[neighbor]) {
+                        bestF[neighbor] = fNew
+                        openSet.add(GraphPriorityQueueItem(fNew, neighbor))
                     }
                 }
             }

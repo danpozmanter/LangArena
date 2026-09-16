@@ -2019,42 +2019,34 @@ class GraphPathAStar(GraphPathBenchmark):
             return 0
 
         vertices = self._graph.get_vertices()
-        g_score = [0x7FFFFFFF] * vertices
-        f_score = [0x7FFFFFFF] * vertices
-        closed = [0] * vertices
+        INF = 0x7FFFFFFF
+
+        g_score = [INF] * vertices
+        best_f = [INF] * vertices
 
         g_score[start] = 0
-        f_score[start] = self._heuristic(start, target)
+        f_start = self._heuristic(start, target)
+        best_f[start] = f_start
 
         open_set = []
-        in_open_set = [0] * vertices
-
-        heapq.heappush(open_set, (f_score[start], start))
-        in_open_set[start] = 1
+        heapq.heappush(open_set, (f_start, start))
 
         while open_set:
             _, current = heapq.heappop(open_set)
-            in_open_set[current] = 0
 
             if current == target:
                 return g_score[current]
 
-            closed[current] = 1
-
             for neighbor in self._graph.get_adjacency()[current]:
-                if closed[neighbor]:
-                    continue
-
                 tentative_g = g_score[current] + 1
 
                 if tentative_g < g_score[neighbor]:
                     g_score[neighbor] = tentative_g
-                    f = tentative_g + self._heuristic(neighbor, target)
-                    f_score[neighbor] = f
+                    f_new = tentative_g + self._heuristic(neighbor, target)
 
-                    if not in_open_set[neighbor]:
-                        heapq.heappush(open_set, (f, neighbor))
-                        in_open_set[neighbor] = 1
+                    if f_new < best_f[neighbor]:
+                        best_f[neighbor] = f_new
+                        heapq.heappush(open_set, (f_new, neighbor))
 
         return -1
 

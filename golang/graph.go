@@ -1,5 +1,7 @@
 package main
 
+import "container/heap"
+
 type Pair struct {
 	vertex   int
 	distance int
@@ -31,7 +33,6 @@ func (g *Graph) AddEdge(u, v int) {
 }
 
 func (g *Graph) GenerateRandom() {
-
 	for i := 1; i < g.vertices; i++ {
 		g.AddEdge(i, i-1)
 	}
@@ -164,68 +165,41 @@ func (g *GraphPathDFS) Checksum() uint32 {
 	return g.result
 }
 
-type GraphPriorityQueueItem struct {
+type GraphAStarNode struct {
 	vertex   int
 	priority int
+	index    int
 }
 
-type GraphPriorityQueue struct {
-	items []GraphPriorityQueueItem
+type GraphAStarPriorityQueue []*GraphAStarNode
+
+func (pq GraphAStarPriorityQueue) Len() int { return len(pq) }
+
+func (pq GraphAStarPriorityQueue) Less(i, j int) bool {
+	return pq[i].priority < pq[j].priority
 }
 
-func NewGraphPriorityQueue(capacity int) *GraphPriorityQueue {
-	return &GraphPriorityQueue{
-		items: make([]GraphPriorityQueueItem, 0, capacity),
-	}
+func (pq GraphAStarPriorityQueue) Swap(i, j int) {
+	pq[i], pq[j] = pq[j], pq[i]
+	pq[i].index = i
+	pq[j].index = j
 }
 
-func (pq *GraphPriorityQueue) Push(vertex, priority int) {
-	pq.items = append(pq.items, GraphPriorityQueueItem{vertex, priority})
-	pq.siftUp(len(pq.items) - 1)
+func (pq *GraphAStarPriorityQueue) Push(x interface{}) {
+	n := len(*pq)
+	item := x.(*GraphAStarNode)
+	item.index = n
+	*pq = append(*pq, item)
 }
 
-func (pq *GraphPriorityQueue) Pop() (int, int) {
-	min := pq.items[0]
-	pq.items[0] = pq.items[len(pq.items)-1]
-	pq.items = pq.items[:len(pq.items)-1]
-	pq.siftDown(0)
-	return min.vertex, min.priority
-}
-
-func (pq *GraphPriorityQueue) Len() int {
-	return len(pq.items)
-}
-
-func (pq *GraphPriorityQueue) siftUp(i int) {
-	for i > 0 {
-		parent := (i - 1) / 2
-		if pq.items[parent].priority <= pq.items[i].priority {
-			break
-		}
-		pq.items[parent], pq.items[i] = pq.items[i], pq.items[parent]
-		i = parent
-	}
-}
-
-func (pq *GraphPriorityQueue) siftDown(i int) {
-	n := len(pq.items)
-	for {
-		left := 2*i + 1
-		right := 2*i + 2
-		smallest := i
-
-		if left < n && pq.items[left].priority < pq.items[smallest].priority {
-			smallest = left
-		}
-		if right < n && pq.items[right].priority < pq.items[smallest].priority {
-			smallest = right
-		}
-		if smallest == i {
-			break
-		}
-		pq.items[i], pq.items[smallest] = pq.items[smallest], pq.items[i]
-		i = smallest
-	}
+func (pq *GraphAStarPriorityQueue) Pop() interface{} {
+	old := *pq
+	n := len(old)
+	item := old[n-1]
+	old[n-1] = nil
+	item.index = -1
+	*pq = old[0 : n-1]
+	return item
 }
 
 type GraphPathAStar struct {
@@ -253,47 +227,42 @@ func (g *GraphPathAStar) aStarShortestPath(start, target int) int {
 	}
 
 	const INF = int(^uint(0) >> 1)
-	gScore := make([]int, g.graph.vertices)
-	fScore := make([]int, g.graph.vertices)
-	closed := make([]byte, g.graph.vertices)
+	n := g.graph.vertices
+
+	gScore := make([]int, n)
+	bestF := make([]int, n)
 
 	for i := range gScore {
 		gScore[i] = INF
-		fScore[i] = INF
+		bestF[i] = INF
 	}
+
 	gScore[start] = 0
-	fScore[start] = g.heuristic(start, target)
+	fStart := g.heuristic(start, target)
+	bestF[start] = fStart
 
-	openSet := NewGraphPriorityQueue(g.graph.vertices)
-	inOpenSet := make([]byte, g.graph.vertices)
-
-	openSet.Push(start, fScore[start])
-	inOpenSet[start] = 1
+	openSet := &GraphAStarPriorityQueue{}
+	heap.Init(openSet)
+	heap.Push(openSet, &GraphAStarNode{vertex: start, priority: fStart})
 
 	for openSet.Len() > 0 {
-		current, _ := openSet.Pop()
-		inOpenSet[current] = 0
+		currentNode := heap.Pop(openSet).(*GraphAStarNode)
+		current := currentNode.vertex
 
 		if current == target {
 			return gScore[current]
 		}
 
-		closed[current] = 1
-
 		for _, neighbor := range g.graph.adj[current] {
-			if closed[neighbor] == 1 {
-				continue
-			}
-
 			tentativeG := gScore[current] + 1
 
 			if tentativeG < gScore[neighbor] {
 				gScore[neighbor] = tentativeG
-				fScore[neighbor] = tentativeG + g.heuristic(neighbor, target)
+				fNew := tentativeG + g.heuristic(neighbor, target)
 
-				if inOpenSet[neighbor] == 0 {
-					openSet.Push(neighbor, fScore[neighbor])
-					inOpenSet[neighbor] = 1
+				if fNew < bestF[neighbor] {
+					bestF[neighbor] = fNew
+					heap.Push(openSet, &GraphAStarNode{vertex: neighbor, priority: fNew})
 				}
 			}
 		}

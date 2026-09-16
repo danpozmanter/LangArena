@@ -15,8 +15,8 @@ struct Pair
 
 struct AStarItem
 {
-	int vertex;
 	int priority;
+	int vertex;
 }
 
 fn bool AStarItem.less(self, AStarItem other)
@@ -317,18 +317,24 @@ fn int graph_path_astar_search(GraphPathGraph* graph, int start, int target)
 {
 	if (start == target) return 0;
 
-	int* g_score = mem::alloc_array(int, (usz)graph.vertices);
-	char* closed = mem::new_array(char, (usz)graph.vertices);
+	int n = graph.vertices;
 
-	for (int i = 0; i < graph.vertices; i++)
+	int* g_score = mem::alloc_array(int, (usz)n);
+	int* best_f  = mem::alloc_array(int, (usz)n);
+
+	for (int i = 0; i < n; i++)
 	{
 		g_score[i] = int::max;
+		best_f[i] = int::max;
 	}
+
 	g_score[start] = 0;
+	int f_start = heuristic(start, target);
+	best_f[start] = f_start;
 
 	AStarQueue open_set;
 	open_set.init(mem, 16);
-	open_set.push({ start, heuristic(start, target) });
+	open_set.push({ f_start, start });
 
 	while (!open_set.is_empty())
 	{
@@ -339,30 +345,32 @@ fn int graph_path_astar_search(GraphPathGraph* graph, int start, int target)
 		{
 			int result = g_score[current];
 			mem::free(g_score);
-			mem::free(closed);
+			mem::free(best_f);
 			open_set.free();
 			return result;
 		}
 
-		if (closed[current]) continue;
-		closed[current] = 1;
-
 		for (int i = 0; i < graph.adj_count[current]; i++)
 		{
-			int neighbor = graph.adj[current][i];
-			if (closed[neighbor]) continue;
-
+			int neighbor    = graph.adj[current][i];
 			int tentative_g = g_score[current] + 1;
+
 			if (tentative_g < g_score[neighbor])
 			{
 				g_score[neighbor] = tentative_g;
-				open_set.push({ neighbor, tentative_g + heuristic(neighbor, target) });
+				int f_new = tentative_g + heuristic(neighbor, target);
+
+				if (f_new < best_f[neighbor])
+				{
+					best_f[neighbor] = f_new;
+					open_set.push({ f_new, neighbor });
+				}
 			}
 		}
 	}
 
 	mem::free(g_score);
-	mem::free(closed);
+	mem::free(best_f);
 	open_set.free();
 	return -1;
 }
