@@ -1,0 +1,163 @@
+use bench::Bench
+use config::Config
+use helper
+
+struct LruCache {
+    capacity: i64
+    index: Map<String, i64>
+    keys: Vec<String>
+    values: Vec<String>
+    prev: Vec<i64>
+    next: Vec<i64>
+    head: i64
+    tail: i64
+    size: i64
+}
+
+impl LruCache {
+    fn new(capacity: i64) -> LruCache {
+        LruCache {
+            capacity: capacity
+            index: Map::new()
+            keys: #[]
+            values: #[]
+            prev: #[]
+            next: #[]
+            head: -1
+            tail: -1
+            size: 0
+        }
+    }
+
+    fn detach(&mut self, node: i64) {
+        let p = self.prev[node]
+        let n = self.next[node]
+        if p >= 0 { self.next[p] = n } else { self.head = n }
+        if n >= 0 { self.prev[n] = p } else { self.tail = p }
+    }
+
+    fn attach_front(&mut self, node: i64) {
+        self.prev[node] = -1
+        self.next[node] = self.head
+        if self.head >= 0 { self.prev[self.head] = node }
+        self.head = node
+        if self.tail < 0 { self.tail = node }
+    }
+
+    fn get(&mut self, key: String) -> Option<String> {
+        match self.index.get(key) {
+            Some(node) => {
+                if node != self.head {
+                    self.detach(node)
+                    self.attach_front(node)
+                }
+                Some(self.values[node])
+            }
+            None => None
+        }
+    }
+
+    fn put(&mut self, key: String, value: String) {
+        if let Some(node) = self.index.get(key) {
+            self.values[node] = value
+            if node != self.head {
+                self.detach(node)
+                self.attach_front(node)
+            }
+            return
+        }
+
+        if self.size >= self.capacity {
+            let evicted = self.tail
+            let _ = self.index.remove(self.keys[evicted])
+            self.detach(evicted)
+
+            self.keys[evicted] = key
+            self.values[evicted] = value
+            let _ = self.index.insert(key, evicted)
+            self.attach_front(evicted)
+            return
+        }
+
+        let node = self.keys.len()
+        self.keys.push(key)
+        self.values.push(value)
+        self.prev.push(-1)
+        self.next.push(-1)
+        let _ = self.index.insert(key, node)
+        self.attach_front(node)
+        self.size += 1
+    }
+
+    fn len(&self) -> i64 { self.size }
+
+    fn clear(&mut self) {
+        self.index.clear()
+        self.keys.clear()
+        self.values.clear()
+        self.prev.clear()
+        self.next.clear()
+        self.head = -1
+        self.tail = -1
+        self.size = 0
+    }
+
+}
+
+pub struct CacheSimulation {
+    values_size: i64
+    cache_size: i64
+    cache: LruCache
+    hits: i64
+    misses: i64
+    rng: helper::Rng
+}
+
+impl CacheSimulation {
+    pub fn new(cfg: Config) -> CacheSimulation {
+        let cache_size = cfg.int("Etc::CacheSimulation", "size")
+        CacheSimulation {
+            values_size: cfg.int("Etc::CacheSimulation", "values")
+            cache_size: cache_size
+            cache: LruCache::new(cache_size)
+            hits: 0
+            misses: 0
+            rng: helper::Rng::new()
+        }
+    }
+}
+
+impl Bench for CacheSimulation {
+    fn prepare(&mut self) {
+        self.cache.clear()
+        self.hits = 0
+        self.misses = 0
+    }
+
+    fn warmup(&mut self, iterations: i64) {
+        for i in 0..iterations { self.run(i) }
+        self.rng.reset()
+    }
+
+    fn run(&mut self, iteration_id: i64) {
+        for _ in 0..1000 {
+            let key = format("item_{}", self.rng.next_int(self.values_size))
+
+            if self.cache.get(key).is_some() {
+                self.hits += 1
+                self.cache.put(key, format("updated_{}", iteration_id))
+            } else {
+                self.misses += 1
+                self.cache.put(key, format("new_{}", iteration_id))
+            }
+        }
+    }
+
+    fn checksum(&self) -> i64 {
+        let mut result: i64 = 5432
+        result = ((result << 5) + self.hits) & helper::MASK32
+        result = ((result << 5) + self.misses) & helper::MASK32
+        result = ((result << 5) + self.cache.len()) & helper::MASK32
+        result
+    }
+}

@@ -1,0 +1,156 @@
+use std::math
+use std::encoding::json
+use bench::Bench
+use config::Config
+use helper
+
+struct Coordinate {
+    x: f64
+    y: f64
+    z: f64
+    name: String
+    opts: Map<String, (i64, bool)>
+}
+
+struct Payload {
+    coordinates: Vec<Coordinate>
+    info: String
+}
+
+struct Mapped {
+    x: f64
+    y: f64
+    z: f64
+}
+
+struct MappedPayload {
+    coordinates: Vec<Mapped>
+}
+
+fn round_to_8(value: f64) -> f64 { math::round(value * 100_000_000.0) / 100_000_000.0 }
+
+fn build_payload(coords: i64, rng: &mut helper::Rng) -> Payload {
+    let mut coordinates: Vec<Coordinate> = #[]
+
+    for _ in 0..coords {
+        let x = round_to_8(rng.next_float(1.0))
+        let y = round_to_8(rng.next_float(1.0))
+        let z = round_to_8(rng.next_float(1.0))
+        let name = format("{:.7} {}", rng.next_float(1.0), rng.next_int(10_000))
+
+        let mut opts: Map<String, (i64, bool)> = Map::new()
+        let _ = opts.insert("1", (1, true))
+
+        coordinates.push(Coordinate { x: x, y: y, z: z, name: name, opts: opts })
+    }
+
+    Payload { coordinates: coordinates, info: "some info" }
+}
+
+pub struct JsonGenerate {
+    coords: i64
+    payload: Payload
+    text: String
+    result: i64
+}
+
+impl JsonGenerate {
+    pub fn new(cfg: Config) -> JsonGenerate {
+        JsonGenerate {
+            coords: cfg.int("Json::Generate", "coords")
+            payload: Payload { coordinates: #[], info: "some info" }
+            text: ""
+            result: 0
+        }
+    }
+}
+
+impl Bench for JsonGenerate {
+    fn prepare(&mut self) {
+        let mut rng = helper::Rng::new()
+        self.payload = build_payload(self.coords, &mut rng)
+    }
+
+    fn run(&mut self, iteration_id: i64) {
+        self.text = json::encode(self.payload)
+        if self.text.starts_with("{\"coordinates\":") { self.result += 1 }
+    }
+
+    fn checksum(&self) -> i64 { self.result }
+}
+
+fn generated_text(cfg: Config, name: String) -> String {
+    let mut rng = helper::Rng::new()
+    json::encode(build_payload(cfg.int(name, "coords"), &mut rng))
+}
+
+pub struct JsonParseDom {
+    text: String
+    result: i64
+}
+
+impl JsonParseDom {
+    pub fn new(cfg: Config) -> JsonParseDom {
+        JsonParseDom { text: generated_text(cfg, "Json::ParseDom"), result: 0 }
+    }
+}
+
+fn field(value: json::Value, name: String) -> f64 {
+    json::get(value, name).and_then(json::as_f64).unwrap_or(0.0)
+}
+
+impl Bench for JsonParseDom {
+    fn run(&mut self, iteration_id: i64) {
+        let document = json::parse(self.text).unwrap()
+        let coordinates = json::get(document, "coordinates")
+            .and_then(json::as_array)
+            .unwrap_or(#[])
+
+        let mut x = 0.0
+        let mut y = 0.0
+        let mut z = 0.0
+        for coordinate in coordinates {
+            x += field(coordinate, "x")
+            y += field(coordinate, "y")
+            z += field(coordinate, "z")
+        }
+
+        let len = coordinates.len() as f64
+        self.result = (self.result + helper::checksum_f64(x / len) +
+            helper::checksum_f64(y / len) + helper::checksum_f64(z / len)) & helper::MASK32
+    }
+
+    fn checksum(&self) -> i64 { self.result }
+}
+
+pub struct JsonParseMapping {
+    text: String
+    result: i64
+}
+
+impl JsonParseMapping {
+    pub fn new(cfg: Config) -> JsonParseMapping {
+        JsonParseMapping { text: generated_text(cfg, "Json::ParseMapping"), result: 0 }
+    }
+}
+
+impl Bench for JsonParseMapping {
+    fn run(&mut self, iteration_id: i64) {
+        let data = json::decode::<MappedPayload>(self.text).unwrap()
+
+        let mut x = 0.0
+        let mut y = 0.0
+        let mut z = 0.0
+        for coordinate in data.coordinates {
+            x += coordinate.x
+            y += coordinate.y
+            z += coordinate.z
+        }
+
+        let len = data.coordinates.len() as f64
+        self.result = (self.result + helper::checksum_f64(x / len) +
+            helper::checksum_f64(y / len) + helper::checksum_f64(z / len)) & helper::MASK32
+    }
+
+    fn checksum(&self) -> i64 { self.result }
+}

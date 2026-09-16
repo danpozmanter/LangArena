@@ -1,0 +1,71 @@
+use std::encoding::csv
+use bench::Bench
+use config::Config
+use helper
+
+const ALPHABET: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+pub struct CsvParse {
+    rows: i64
+    data: String
+    result: i64
+    rng: helper::Rng
+}
+
+impl CsvParse {
+    pub fn new(cfg: Config) -> CsvParse {
+        CsvParse {
+            rows: cfg.int("CSV::Parse", "rows")
+            data: ""
+            result: 0
+            rng: helper::Rng::new()
+        }
+    }
+}
+
+impl Bench for CsvParse {
+    fn prepare(&mut self) {
+        let mut data = String::new()
+
+        for i in 0..self.rows {
+            let letter = ALPHABET[i % 26]
+            let x = self.rng.next_float(1.0)
+            let z = self.rng.next_float(1.0)
+            let y = self.rng.next_float(1.0)
+
+            data.push_str(format("\"point {}\\n, \"\"{}\"\"\",", letter, i % 100))
+            data.push_str(format("{:.10},", x))
+            data.push_str(",")
+            data.push_str(format("{:.10},", z))
+            let flag = if i % 2 == 0 { "true" } else { "false" }
+            data.push_str(format("\"[{}\\n, {}]\",", flag, i % 100))
+            data.push_str(format("{:.10}\n", y))
+        }
+
+        self.data = data
+    }
+
+    fn run(&mut self, iteration_id: i64) {
+        let records = csv::read(self.data).unwrap_or(#[])
+        if records.is_empty() { return }
+
+        let mut x_sum = 0.0
+        let mut y_sum = 0.0
+        let mut z_sum = 0.0
+
+        for record in records {
+            x_sum += record[1].to_f64().unwrap_or(0.0)
+            z_sum += record[3].to_f64().unwrap_or(0.0)
+            y_sum += record[5].to_f64().unwrap_or(0.0)
+        }
+
+        let count = records.len() as f64
+        self.result = (self.result + helper::checksum_f64(x_sum / count) +
+            helper::checksum_f64(y_sum / count) +
+            helper::checksum_f64(z_sum / count)) & helper::MASK32
+    }
+
+    fn checksum(&self) -> i64 {
+        (self.result + helper::checksum_str(self.data)) & helper::MASK32
+    }
+}

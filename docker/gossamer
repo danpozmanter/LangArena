@@ -1,0 +1,27 @@
+FROM langarena:base_clang
+
+ARG version
+ARG rust_version=1.98.0
+
+# `gos build --release` links a self-contained static-musl executable. The
+# link resolves the musl CRT and libc from rustup's self-contained target
+# directory, so the musl target has to be installed; the LLVM tools the
+# native backend drives (opt, llc, clang, ld.lld) come from base_clang.
+RUN wget https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init \
+    && chmod +x rustup-init \
+    && ./rustup-init -y \
+        --default-toolchain ${rust_version} \
+        --profile minimal \
+        --target x86_64-unknown-linux-musl \
+    && rm rustup-init
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# `gos` resolves its runtime archives relative to itself, as <bin>/../lib.
+RUN wget --progress=dot:giga -O - \
+    https://github.com/gossamer-lang/gossamer/releases/download/v$version/gos-$version-linux-x86_64.tar.gz \
+    | tar -xz \
+    && mv /opt/gos-$version-linux-x86_64 /opt/gossamer \
+    && mkdir /opt/gossamer/bin /opt/gossamer/lib \
+    && mv /opt/gossamer/gos /opt/gossamer/bin/ \
+    && mv /opt/gossamer/libgossamer_runtime.a /opt/gossamer/libgossamer_runtime-musl.a /opt/gossamer/lib/
+ENV PATH="/opt/gossamer/bin:${PATH}"

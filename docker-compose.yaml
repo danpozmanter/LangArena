@@ -583,6 +583,22 @@ services:
     depends_on:
       - base_clang
 
+  gossamer:
+    <<: *shared
+    image: langarena:gossamer
+    working_dir: /src/gossamer
+    build:
+      dockerfile: docker/gossamer
+      args:
+        # https://github.com/gossamer-lang/gossamer/releases
+        version: "0.61.1"
+    volumes:
+      - .:/src
+      - ./cache/build/gossamer/target:/src/gossamer/target
+      - ./cache/build/gossamer/gos-cache:/src/gossamer/.gos-cache
+    depends_on:
+      - base_clang
+
   julia:
     <<: *shared
     image: langarena:julia

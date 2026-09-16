@@ -457,7 +457,8 @@ function lang_color(lang) {
         'c3': '#3C99B1',
         'ruby': '#CC342D',
         'mojo': '#FF4D00',
-        'php': '#8892BF'
+        'php': '#8892BF',
+        'gossamer': '#38BDF8'
     };
 
     return colorMap[key] || '#95a5a6';

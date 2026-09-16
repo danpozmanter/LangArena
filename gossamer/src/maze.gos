@@ -1,0 +1,337 @@
+use bench::Bench
+use config::Config
+use helper
+
+const WALL: i64 = 0
+const SPACE: i64 = 1
+const START: i64 = 2
+const FINISH: i64 = 3
+const BORDER: i64 = 4
+
+const FNV_OFFSET: i64 = 2166136261
+const FNV_PRIME: i64 = 16777619
+
+const UNREACHED: i64 = 2_147_483_647
+
+fn is_walkable(kind: i64) -> bool { kind == SPACE || kind == START || kind == FINISH }
+
+struct Tile {
+    kind: i64
+    neighbors: Vec<(i64, i64)>
+    x: i64
+    y: i64
+}
+
+struct Maze {
+    width: i64
+    height: i64
+    cells: Vec<Vec<Tile>>
+}
+
+impl Maze {
+    fn new(width: i64, height: i64) -> Maze {
+        let w = if width > 5 { width } else { 5 }
+        let h = if height > 5 { height } else { 5 }
+
+        let mut cells: Vec<Vec<Tile>> = #[]
+        for y in 0..h {
+            let mut row: Vec<Tile> = #[]
+            for x in 0..w {
+                row.push(Tile { kind: WALL, neighbors: #[(0, 0), (0, 0), (0, 0), (0, 0)], x: x, y: y })
+            }
+            cells.push(row)
+        }
+
+        let mut maze = Maze { width: w, height: h, cells: cells }
+        maze.link_neighbors()
+        maze
+    }
+
+    fn link_neighbors(&mut self) {
+        let mut rng = helper::Rng::new()
+        for y in 0..self.height {
+            for x in 0..self.width {
+                if x == 0 || y == 0 || x == self.width - 1 || y == self.height - 1 {
+                    self.cells[y][x].kind = BORDER
+                } else {
+                    let mut neighbors: Vec<(i64, i64)> = #[
+                        (y - 1, x), (y + 1, x), (y, x + 1), (y, x - 1)
+                    ]
+
+                    for _ in 0..4 {
+                        let i = rng.next_int(4)
+                        let j = rng.next_int(4)
+                        if i != j { neighbors.swap(i, j) }
+                    }
+
+                    self.cells[y][x].neighbors = neighbors
+                }
+            }
+        }
+
+        self.mark_endpoints()
+    }
+
+    fn mark_endpoints(&mut self) {
+        self.cells[1][1].kind = START
+        self.cells[self.height - 2][self.width - 2].kind = FINISH
+    }
+
+    fn reset(&mut self) {
+        for y in 0..self.height {
+            for x in 0..self.width {
+                if self.cells[y][x].kind == SPACE { self.cells[y][x].kind = WALL }
+            }
+        }
+        self.mark_endpoints()
+    }
+
+    fn walkable_neighbors(&self, y: i64, x: i64) -> i64 {
+        let mut count = 0
+        for (ny, nx) in self.cells[y][x].neighbors {
+            if is_walkable(self.cells[ny][nx].kind) { count += 1 }
+        }
+        count
+    }
+
+    fn dig(&mut self, from: (i64, i64)) {
+        let mut stack: Vec<(i64, i64)> = Vec::with_capacity(self.width * self.height)
+        stack.push(from)
+
+        while let Some((y, x)) = stack.pop() {
+            if self.walkable_neighbors(y, x) == 1 {
+                self.cells[y][x].kind = SPACE
+                for (ny, nx) in self.cells[y][x].neighbors {
+                    if self.cells[ny][nx].kind == WALL { stack.push((ny, nx)) }
+                }
+            }
+        }
+    }
+
+    fn ensure_open_finish(&mut self, (y, x): (i64, i64)) {
+        self.cells[y][x].kind = SPACE
+
+        let mut walls: Vec<(i64, i64)> = #[]
+        for (ny, nx) in self.cells[y][x].neighbors {
+            if self.cells[ny][nx].kind == WALL { walls.push((ny, nx)) }
+        }
+
+        if self.walkable_neighbors(y, x) > 1 { return }
+
+        for wall in walls { self.ensure_open_finish(wall) }
+    }
+
+    fn generate(&mut self) {
+        for (ny, nx) in self.cells[1][1].neighbors {
+            if self.cells[ny][nx].kind == WALL { self.dig((ny, nx)) }
+        }
+
+        let fy = self.height - 2
+        let fx = self.width - 2
+        for (ny, nx) in self.cells[fy][fx].neighbors {
+            if self.cells[ny][nx].kind == WALL { self.ensure_open_finish((ny, nx)) }
+        }
+    }
+
+    fn start(&self) -> (i64, i64) { (1, 1) }
+
+    fn finish(&self) -> (i64, i64) { (self.height - 2, self.width - 2) }
+
+    fn structure_checksum(&self) -> i64 {
+        let mut hash = FNV_OFFSET
+        for row in self.cells {
+            for cell in row {
+                if cell.kind == SPACE {
+                    hash = ((hash ^ ((cell.x * cell.y) & helper::MASK32)) * FNV_PRIME) & helper::MASK32
+                }
+            }
+        }
+        hash
+    }
+}
+
+pub struct MazeGenerator {
+    maze: Maze
+    result: i64
+}
+
+impl MazeGenerator {
+    pub fn new(cfg: Config) -> MazeGenerator {
+        MazeGenerator {
+            maze: Maze::new(cfg.int("Maze::Generator", "w"), cfg.int("Maze::Generator", "h"))
+            result: 0
+        }
+    }
+}
+
+impl Bench for MazeGenerator {
+    fn run(&mut self, iteration_id: i64) {
+        self.maze.reset()
+        self.maze.generate()
+        let my = self.maze.height / 2
+        let mx = self.maze.width / 2
+        self.result = (self.result + self.maze.cells[my][mx].kind) & helper::MASK32
+    }
+
+    fn checksum(&self) -> i64 {
+        (self.result + self.maze.structure_checksum()) & helper::MASK32
+    }
+}
+
+fn path_checksum(maze: Maze, path: Vec<(i64, i64)>, result: i64) -> i64 {
+    if path.is_empty() { return result }
+    let y, x = path[path.len() / 2]
+    (result + ((maze.cells[y][x].x * maze.cells[y][x].y) & helper::MASK32)) & helper::MASK32
+}
+
+pub struct MazeBfs {
+    maze: Maze
+    path: Vec<(i64, i64)>
+    result: i64
+}
+
+impl MazeBfs {
+    pub fn new(cfg: Config) -> MazeBfs {
+        MazeBfs {
+            maze: Maze::new(cfg.int("Maze::BFS", "w"), cfg.int("Maze::BFS", "h"))
+            path: #[]
+            result: 0
+        }
+    }
+
+    fn solve(&self, start: (i64, i64), target: (i64, i64)) -> Vec<(i64, i64)> {
+        if start == target { return #[start] }
+
+        let mut visited: Vec<Vec<bool>> = #[]
+        for _ in 0..self.maze.height { visited.push(#[false; self.maze.width]) }
+
+        let mut cells: Vec<(i64, i64)> = #[start]
+        let mut parents: Vec<i64> = #[-1]
+        let mut queue = Deque::new()
+
+        visited[start.0][start.1] = true
+        queue.push_back(0)
+
+        while let Some(node) = queue.pop_front() {
+            let y, x = cells[node]
+            for (ny, nx) in self.maze.cells[y][x].neighbors {
+                if ny == target.0 && nx == target.1 {
+                    let mut result: Vec<(i64, i64)> = #[target]
+                    let mut current = node
+                    while current >= 0 {
+                        result.push(cells[current])
+                        current = parents[current]
+                    }
+                    result.reverse()
+                    return result
+                }
+
+                if is_walkable(self.maze.cells[ny][nx].kind) && !visited[ny][nx] {
+                    visited[ny][nx] = true
+                    cells.push((ny, nx))
+                    parents.push(node)
+                    queue.push_back(cells.len() - 1)
+                }
+            }
+        }
+
+        #[]
+    }
+}
+
+impl Bench for MazeBfs {
+    fn prepare(&mut self) { self.maze.generate() }
+
+    fn run(&mut self, iteration_id: i64) {
+        self.path = self.solve(self.maze.start(), self.maze.finish())
+        self.result = (self.result + self.path.len()) & helper::MASK32
+    }
+
+    fn checksum(&self) -> i64 { path_checksum(self.maze, self.path, self.result) }
+}
+
+pub struct MazeAStar {
+    maze: Maze
+    path: Vec<(i64, i64)>
+    result: i64
+}
+
+impl MazeAStar {
+    pub fn new(cfg: Config) -> MazeAStar {
+        MazeAStar {
+            maze: Maze::new(cfg.int("Maze::AStar", "w"), cfg.int("Maze::AStar", "h"))
+            path: #[]
+            result: 0
+        }
+    }
+
+    fn heuristic(&self, a: (i64, i64), b: (i64, i64)) -> i64 {
+        let dy = a.0 - b.0
+        let dx = a.1 - b.1
+        (if dy < 0 { -dy } else { dy }) + (if dx < 0 { -dx } else { dx })
+    }
+
+    fn solve(&self, start: (i64, i64), target: (i64, i64)) -> Vec<(i64, i64)> {
+        if start == target { return #[start] }
+
+        let width = self.maze.width
+        let size = width * self.maze.height
+        let mut came_from: Vec<i64> = #[-1; size]
+        let mut g_score: Vec<i64> = #[UNREACHED; size]
+        let mut best_f: Vec<i64> = #[UNREACHED; size]
+
+        let start_idx = start.0 * width + start.1
+        let target_idx = target.0 * width + target.1
+
+        let mut open = MinHeap::new()
+        g_score[start_idx] = 0
+        let f_start = self.heuristic(start, target)
+        open.push((f_start, start_idx))
+        best_f[start_idx] = f_start
+
+        while let Some((_, current)) = open.pop() {
+            if current == target_idx {
+                let mut path: Vec<(i64, i64)> = #[]
+                let mut cursor = current
+                while cursor != -1 {
+                    path.push((cursor / width, cursor % width))
+                    cursor = came_from[cursor]
+                }
+                path.reverse()
+                return path
+            }
+
+            let cy = current / width
+            let cx = current % width
+            for (ny, nx) in self.maze.cells[cy][cx].neighbors {
+                if !is_walkable(self.maze.cells[ny][nx].kind) { continue }
+
+                let neighbor_idx = ny * width + nx
+                let tentative = g_score[current] + 1
+                if tentative < g_score[neighbor_idx] {
+                    came_from[neighbor_idx] = current
+                    g_score[neighbor_idx] = tentative
+                    let f_new = tentative + self.heuristic((ny, nx), target)
+
+                    if f_new < best_f[neighbor_idx] {
+                        best_f[neighbor_idx] = f_new
+                        open.push((f_new, neighbor_idx))
+                    }
+                }
+            }
+        }
+
+        #[]
+    }
+}
+
+impl Bench for MazeAStar {
+    fn prepare(&mut self) { self.maze.generate() }
+
+    fn run(&mut self, iteration_id: i64) {
+        self.path = self.solve(self.maze.start(), self.maze.finish())
+        self.result = (self.result + self.path.len()) & helper::MASK32
+    }
+
+    fn checksum(&self) -> i64 { path_checksum(self.maze, self.path, self.result) }
+}

@@ -94,6 +94,9 @@ class Gen
   <strong>Note on <code>Mojo</code>:</strong> this is a young language, and many tests use Python interop instead of native implementations, simply because I can't compile libraries for JSON, Regex, Csv or implement certain tasks better due to missing language features. Performance is still very raw.
 </div>
 <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 10px 15px; margin: 10px 0; border-radius: 4px;">
+  <strong>Note on <code>Gossamer</code>:</strong> another young, pre-1.0 language. It is measured on its LLVM ahead-of-time back-end (<code>gos build --release</code>), the production target.
+</div>
+<div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 10px 15px; margin: 10px 0; border-radius: 4px;">
   <strong>Note on <code>Go</code>:</strong> Go suffers from regex benchmarks — see my <a href="https://www.reddit.com/r/golang/comments/1rr2evh/why_is_gos_regex_so_slow/">post</a> on this.
 </div>
     DESC
@@ -1026,7 +1029,8 @@ DESC
 
   def _lang_for(run)
     v = run.downcase.split('/').first
-    v.gsub("nim++", "nim").gsub("++", "pp").gsub("#", "sharp").gsub("go", "golang")
+    v = v.gsub("nim++", "nim").gsub("++", "pp").gsub("#", "sharp")
+    v == "go" ? "golang" : v
   end
 
   def _to_lang(run)

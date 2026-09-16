@@ -24,14 +24,15 @@ LANG_MASKS = {
   'odin' => ['./odin', ['.odin'], ['target'], "odinfmt -w $@"],
   'scala' => ['./scala', ['.scala'], ['target', 'project'], "\"/Users/kostya/Library/Application Support/Coursier/bin/scalafmt\" -i src/"],
   'mojo' => ['./mojo', ['.mojo'], ['target', '.venv', '.pixi'], 'pixi run mojo format $@'],
-  'php' => ['./php', ['.php'], [], 'pretty-php $@']
+  'php' => ['./php', ['.php'], [], 'pretty-php $@'],
+  'gossamer' => ['./gossamer', ['.gos'], ['target', '.gos-cache'], 'gos fmt $@']
 }
 
 def remove_comments(filepath, lang)
   content = File.read(filepath, encoding: 'utf-8')
   
   case lang
-  when 'c', 'cpp', 'golang', 'rust', 'csharp', 'swift', 'java', 'kotlin', 'd', 'v', 'fsharp', 'dart', 'zig', 'odin', 'scala', 'c3', 'php'
+  when 'c', 'cpp', 'golang', 'rust', 'csharp', 'swift', 'java', 'kotlin', 'd', 'v', 'fsharp', 'dart', 'zig', 'odin', 'scala', 'c3', 'php', 'gossamer'
     lines = content.lines.map do |line|
       in_string = false
       string_char = nil
