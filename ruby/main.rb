@@ -1764,7 +1764,6 @@ module Graph
 
     def prepare
       @graph.generate_random
-      total_edges = @graph.adj.sum(&:size) / 2
     end
 
     def test
@@ -1852,6 +1851,7 @@ module Graph
   end
 
   class AStar < GraphPathBenchmark
+
     private
 
     class PriorityQueue
@@ -1865,10 +1865,11 @@ module Graph
       end
 
       def push(vertex, priority)
+
         if @size >= @heap.size
-          @heap << [vertex, priority]
+          @heap << [priority, vertex]
         else
-          @heap[@size] = [vertex, priority]
+          @heap[@size] = [priority, vertex]
         end
 
         i = @size
@@ -1876,12 +1877,12 @@ module Graph
 
         while i > 0
           parent = (i - 1) / 2
-          break if @heap[parent][1] <= priority
+          break if @heap[parent][0] <= priority
           @heap[i] = @heap[parent]
           i = parent
         end
 
-        @heap[i] = [vertex, priority]
+        @heap[i] = [priority, vertex]
       end
 
       def pop
@@ -1897,11 +1898,11 @@ module Graph
             right = 2 * i + 2
             smallest = i
 
-            if left < @size && @heap[left][1] < @heap[smallest][1]
+            if left < @size && @heap[left][0] < @heap[smallest][0]
               smallest = left
             end
 
-            if right < @size && @heap[right][1] < @heap[smallest][1]
+            if right < @size && @heap[right][0] < @heap[smallest][0]
               smallest = right
             end
 
@@ -1933,36 +1934,34 @@ module Graph
     def astar_shortest_path(start, target)
       return 0 if start == target
 
-      g_score = Array.new(@graph.vertices, 2 ** 31 - 1)
+      n = @graph.vertices
+      inf = 2 ** 31 - 1
+
+      g_score = Array.new(n, inf)
+      best_f = Array.new(n, inf)
+
       g_score[start] = 0
+      f_start = heuristic(start, target)
+      best_f[start] = f_start
 
       open_set = PriorityQueue.new
-      open_set.push(start, heuristic(start, target))
-
-      in_open_set = Array.new(@graph.vertices, false)
-      in_open_set[start] = true
-
-      closed = Array.new(@graph.vertices, false)
+      open_set.push(start, f_start)
 
       while !open_set.empty?
-        current, _ = open_set.pop
-        closed[current] = true
-        in_open_set[current] = false
+        priority, current = open_set.pop
 
         return g_score[current] if current == target
 
         @graph.adj[current].each do |neighbor|
-          next if closed[neighbor]
-
           tentative_g = g_score[current] + 1
 
           if tentative_g < g_score[neighbor]
             g_score[neighbor] = tentative_g
-            f = tentative_g + heuristic(neighbor, target)
+            f_new = tentative_g + heuristic(neighbor, target)
 
-            unless in_open_set[neighbor]
-              open_set.push(neighbor, f)
-              in_open_set[neighbor] = true
+            if f_new < best_f[neighbor]
+              best_f[neighbor] = f_new
+              open_set.push(neighbor, f_new)
             end
           end
         end

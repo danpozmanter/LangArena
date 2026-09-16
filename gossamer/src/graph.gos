@@ -138,30 +138,26 @@ impl GraphAStar {
 
         let vertices = self.graph.vertices
         let mut g_score: Vec<i64> = #[UNREACHED; vertices]
-        let mut closed: Vec<bool> = #[false; vertices]
-        let mut in_open: Vec<bool> = #[false; vertices]
+        let mut best_f: Vec<i64> = #[UNREACHED; vertices]
 
         g_score[start] = 0
+        let f_start = target - start
+        best_f[start] = f_start
 
         let mut open = MinHeap::new()
-        open.push((target - start, start))
-        in_open[start] = true
+        open.push((f_start, start))
 
         while let Some((_, vertex)) = open.pop() {
-            in_open[vertex] = false
-
             if vertex == target { return g_score[vertex] }
-            closed[vertex] = true
 
             for neighbor in self.graph.adj[vertex] {
-                if closed[neighbor] { continue }
-
                 let tentative = g_score[vertex] + 1
                 if tentative < g_score[neighbor] {
                     g_score[neighbor] = tentative
-                    if !in_open[neighbor] {
-                        open.push((tentative + target - neighbor, neighbor))
-                        in_open[neighbor] = true
+                    let f_new = tentative + target - neighbor
+                    if f_new < best_f[neighbor] {
+                        best_f[neighbor] = f_new
+                        open.push((f_new, neighbor))
                     }
                 }
             }

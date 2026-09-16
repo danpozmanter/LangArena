@@ -328,64 +328,53 @@ static int graph_path_astar_search(GraphPathGraph *graph, int start,
   if (start == target)
     return 0;
 
-  int *g_score = malloc(graph->vertices * sizeof(int));
-  int *f_score = malloc(graph->vertices * sizeof(int));
-  uint8_t *visited = calloc(graph->vertices, sizeof(uint8_t));
+  int n = graph->vertices;
 
-  for (int i = 0; i < graph->vertices; i++) {
+  int *g_score = malloc(n * sizeof(int));
+  int *best_f = malloc(n * sizeof(int));
+
+  for (int i = 0; i < n; i++) {
     g_score[i] = INT_MAX;
-    f_score[i] = INT_MAX;
+    best_f[i] = INT_MAX;
   }
+
   g_score[start] = 0;
-  f_score[start] = heuristic(start, target);
+  int f_start = heuristic(start, target);
+  best_f[start] = f_start;
 
   PriorityQueue open_set = {0};
-  priority_queue_push(&open_set, start, f_score[start]);
-
-  uint8_t *in_open_set = calloc(graph->vertices, sizeof(uint8_t));
-  in_open_set[start] = 1;
+  priority_queue_push(&open_set, start, f_start);
 
   while (open_set.size > 0) {
     PriorityQueueItem current_item = priority_queue_pop(&open_set);
     int current = current_item.vertex;
-    in_open_set[current] = 0;
 
     if (current == target) {
       int result = g_score[current];
       free(g_score);
-      free(f_score);
-      free(visited);
-      free(in_open_set);
+      free(best_f);
       free(open_set.items);
       return result;
     }
 
-    visited[current] = 1;
-
     for (int i = 0; i < graph->adj_count[current]; i++) {
       int neighbor = graph->adj[current][i];
-      if (visited[neighbor])
-        continue;
-
       int tentative_g = g_score[current] + 1;
 
       if (tentative_g < g_score[neighbor]) {
         g_score[neighbor] = tentative_g;
-        int f = tentative_g + heuristic(neighbor, target);
-        f_score[neighbor] = f;
+        int f_new = tentative_g + heuristic(neighbor, target);
 
-        if (!in_open_set[neighbor]) {
-          priority_queue_push(&open_set, neighbor, f);
-          in_open_set[neighbor] = 1;
+        if (f_new < best_f[neighbor]) {
+          best_f[neighbor] = f_new;
+          priority_queue_push(&open_set, neighbor, f_new);
         }
       }
     }
   }
 
   free(g_score);
-  free(f_score);
-  free(visited);
-  free(in_open_set);
+  free(best_f);
   free(open_set.items);
   return -1;
 }

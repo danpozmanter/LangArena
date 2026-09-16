@@ -1,7 +1,6 @@
 from helper import Helper
 from benchmark import Benchmark, Config
 
-
 comptime CHAR_PLUS: UInt8 = UInt8(ord("+"))
 comptime CHAR_MINUS: UInt8 = UInt8(ord("-"))
 comptime CHAR_LESS: UInt8 = UInt8(ord("<"))

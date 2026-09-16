@@ -462,13 +462,13 @@ class Tape {
 }
 
 class BrainfuckProgram {
-  static final int _leftBracket  = '['.codeUnitAt(0);
+  static final int _leftBracket = '['.codeUnitAt(0);
   static final int _rightBracket = ']'.codeUnitAt(0);
-  static final int _plus         = '+'.codeUnitAt(0);
-  static final int _minus        = '-'.codeUnitAt(0);
-  static final int _greater      = '>'.codeUnitAt(0);
-  static final int _less         = '<'.codeUnitAt(0);
-  static final int _dot          = '.'.codeUnitAt(0);
+  static final int _plus = '+'.codeUnitAt(0);
+  static final int _minus = '-'.codeUnitAt(0);
+  static final int _greater = '>'.codeUnitAt(0);
+  static final int _less = '<'.codeUnitAt(0);
+  static final int _dot = '.'.codeUnitAt(0);
 
   final Uint8List _commands;
   final List<int> _jumps;
@@ -2227,74 +2227,10 @@ class GraphPathDFS extends GraphPathBenchmark {
   String get benchmarkName => 'Graph::DFS';
 }
 
-class PriorityQueueItem implements Comparable<PriorityQueueItem> {
+class PriorityQueueItem {
   final int vertex;
   final int priority;
   PriorityQueueItem(this.vertex, this.priority);
-
-  @override
-  int compareTo(PriorityQueueItem other) {
-    return priority.compareTo(other.priority);
-  }
-}
-
-class PriorityQueue2<E extends Comparable<E>> {
-  final List<E> _heap = [];
-
-  int get length => _heap.length;
-  bool get isEmpty => _heap.isEmpty;
-  bool get isNotEmpty => _heap.isNotEmpty;
-
-  void add(E element) {
-    _heap.add(element);
-    _siftUp(_heap.length - 1);
-  }
-
-  E removeFirst() {
-    if (_heap.isEmpty) {
-      throw StateError("Cannot remove from empty priority queue");
-    }
-    final result = _heap[0];
-    final last = _heap.removeLast();
-    if (_heap.isNotEmpty) {
-      _heap[0] = last;
-      _siftDown(0);
-    }
-    return result;
-  }
-
-  void _siftUp(int index) {
-    final element = _heap[index];
-    while (index > 0) {
-      final parent = (index - 1) ~/ 2;
-      if (element.compareTo(_heap[parent]) >= 0) break;
-      _heap[index] = _heap[parent];
-      _heap[parent] = element;
-      index = parent;
-    }
-  }
-
-  void _siftDown(int index) {
-    final size = _heap.length;
-    final element = _heap[index];
-    while (true) {
-      final left = 2 * index + 1;
-      final right = left + 1;
-      var smallest = index;
-
-      if (left < size && _heap[left].compareTo(_heap[smallest]) < 0) {
-        smallest = left;
-      }
-      if (right < size && _heap[right].compareTo(_heap[smallest]) < 0) {
-        smallest = right;
-      }
-      if (smallest == index) break;
-
-      _heap[index] = _heap[smallest];
-      _heap[smallest] = element;
-      index = smallest;
-    }
-  }
 }
 
 class GraphPathAStar extends GraphPathBenchmark {
@@ -2308,41 +2244,37 @@ class GraphPathAStar extends GraphPathBenchmark {
   int _aStarShortestPath(int start, int target) {
     if (start == target) return 0;
 
-    final gScore = List<int>.filled(_graph.vertices, 0x7FFFFFFF);
-    final fScore = List<int>.filled(_graph.vertices, 0x7FFFFFFF);
-    final closed = Uint8List(_graph.vertices);
+    final n = _graph.vertices;
+
+    final gScore = List<int>.filled(n, 0x7FFFFFFF);
+    final bestF = List<int>.filled(n, 0x7FFFFFFF);
 
     gScore[start] = 0;
-    fScore[start] = _heuristic(start, target);
+    final fStart = _heuristic(start, target);
+    bestF[start] = fStart;
 
-    final openSet = PriorityQueue2<PriorityQueueItem>();
-    final inOpenSet = Uint8List(_graph.vertices);
-
-    openSet.add(PriorityQueueItem(start, fScore[start]));
-    inOpenSet[start] = 1;
+    final openSet = PriorityQueue<PriorityQueueItem>(
+      (a, b) => a.priority.compareTo(b.priority),
+    );
+    openSet.add(PriorityQueueItem(start, fStart));
 
     while (openSet.isNotEmpty) {
       final current = openSet.removeFirst();
-      inOpenSet[current.vertex] = 0;
 
       if (current.vertex == target) {
         return gScore[current.vertex];
       }
 
-      closed[current.vertex] = 1;
-
       for (final neighbor in _graph.adj[current.vertex]) {
-        if (closed[neighbor] == 1) continue;
-
         final tentativeG = gScore[current.vertex] + 1;
 
         if (tentativeG < gScore[neighbor]) {
           gScore[neighbor] = tentativeG;
-          fScore[neighbor] = tentativeG + _heuristic(neighbor, target);
+          final fNew = tentativeG + _heuristic(neighbor, target);
 
-          if (inOpenSet[neighbor] == 0) {
-            openSet.add(PriorityQueueItem(neighbor, fScore[neighbor]));
-            inOpenSet[neighbor] = 1;
+          if (fNew < bestF[neighbor]) {
+            bestF[neighbor] = fNew;
+            openSet.add(PriorityQueueItem(neighbor, fNew));
           }
         }
       }

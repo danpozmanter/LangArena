@@ -170,18 +170,20 @@ class GraphPathDFS extends GraphPathBenchmark {
     }
 }
 
-class PriorityQueueItem implements Comparable<PriorityQueueItem> {
-    final int vertex;
+class GraphPriorityQueueItem implements Comparable<GraphPriorityQueueItem> {
     final int priority;
+    final int vertex;
 
-    PriorityQueueItem(int vertex, int priority) {
-        this.vertex = vertex;
+    GraphPriorityQueueItem(int priority, int vertex) {
         this.priority = priority;
+        this.vertex = vertex;
     }
 
     @Override
-    public int compareTo(PriorityQueueItem other) {
-        return Integer.compare(this.priority, other.priority);
+    public int compareTo(GraphPriorityQueueItem other) {
+        if (this.priority != other.priority)
+            return Integer.compare(this.priority, other.priority);
+        return Integer.compare(this.vertex, other.vertex);
     }
 }
 
@@ -204,45 +206,39 @@ class GraphPathAStar extends GraphPathBenchmark {
     private int aStarShortestPath(int start, int target) {
         if (start == target) return 0;
 
-        int[] gScore = new int[graph.vertices];
-        int[] fScore = new int[graph.vertices];
-        boolean[] closed = new boolean[graph.vertices];
+        int n = graph.vertices;
+
+        int[] gScore = new int[n];
+        int[] bestF = new int[n];
 
         Arrays.fill(gScore, Integer.MAX_VALUE);
-        Arrays.fill(fScore, Integer.MAX_VALUE);
+        Arrays.fill(bestF, Integer.MAX_VALUE);
 
         gScore[start] = 0;
-        fScore[start] = heuristic(start, target);
+        int fStart = heuristic(start, target);
+        bestF[start] = fStart;
 
-        PriorityQueue<PriorityQueueItem> openSet = new PriorityQueue<>();
-        boolean[] inOpenSet = new boolean[graph.vertices];
-
-        openSet.add(new PriorityQueueItem(start, fScore[start]));
-        inOpenSet[start] = true;
+        PriorityQueue<GraphPriorityQueueItem> openSet = new PriorityQueue<>();
+        openSet.add(new GraphPriorityQueueItem(fStart, start));
 
         while (!openSet.isEmpty()) {
-            PriorityQueueItem current = openSet.poll();
+            GraphPriorityQueueItem current = openSet.poll();
             int currentVertex = current.vertex;
-            inOpenSet[currentVertex] = false;
 
             if (currentVertex == target) {
                 return gScore[currentVertex];
             }
 
-            closed[currentVertex] = true;
-
             for (int neighbor : graph.adj.get(currentVertex)) {
-                if (closed[neighbor]) continue;
-
                 int tentativeG = gScore[currentVertex] + 1;
 
                 if (tentativeG < gScore[neighbor]) {
                     gScore[neighbor] = tentativeG;
-                    fScore[neighbor] = tentativeG + heuristic(neighbor, target);
+                    int fNew = tentativeG + heuristic(neighbor, target);
 
-                    if (!inOpenSet[neighbor]) {
-                        openSet.add(new PriorityQueueItem(neighbor, fScore[neighbor]));
-                        inOpenSet[neighbor] = true;
+                    if (fNew < bestF[neighbor]) {
+                        bestF[neighbor] = fNew;
+                        openSet.add(new GraphPriorityQueueItem(fNew, neighbor));
                     }
                 }
             }

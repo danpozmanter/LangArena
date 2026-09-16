@@ -246,12 +246,15 @@ GraphPathAStar :: struct {
 }
 
 GPANode :: struct {
-	vertex:  int,
-	f_score: int,
+	priority: int,
+	vertex:   int,
 }
 
 gpa_node_less :: proc(a, b: GPANode) -> bool {
-	return a.f_score < b.f_score
+	if a.priority != b.priority {
+		return a.priority < b.priority
+	}
+	return a.vertex < b.vertex
 }
 
 gpa_node_swap :: proc(nodes: []GPANode, i, j: int) {
@@ -268,26 +271,23 @@ astar_shortest_path :: proc(g: ^Graph, start, target: int) -> int {
 	}
 
 	INF := max(int)
-	g_score := make([]int, g.vertices)
-	f_score := make([]int, g.vertices)
-	in_open_set := make([]bool, g.vertices)
-	closed := make([]bool, g.vertices)
+	n := g.vertices
+
+	g_score := make([]int, n)
+	best_f := make([]int, n)
 	defer {
 		delete(g_score)
-		delete(f_score)
-		delete(in_open_set)
-		delete(closed)
+		delete(best_f)
 	}
 
-	for i in 0 ..< g.vertices {
+	for i in 0 ..< n {
 		g_score[i] = INF
-		f_score[i] = INF
-		closed[i] = false
-		in_open_set[i] = false
+		best_f[i] = INF
 	}
 
 	g_score[start] = 0
-	f_score[start] = heuristic(start, target)
+	f_start := heuristic(start, target)
+	best_f[start] = f_start
 
 	open_set: priority_queue.Priority_Queue(GPANode)
 	err := priority_queue.init(&open_set, gpa_node_less, gpa_node_swap, 16)
@@ -296,36 +296,25 @@ astar_shortest_path :: proc(g: ^Graph, start, target: int) -> int {
 	}
 	defer priority_queue.destroy(&open_set)
 
-	priority_queue.push(&open_set, GPANode{start, f_score[start]})
-	in_open_set[start] = true
+	priority_queue.push(&open_set, GPANode{f_start, start})
 
 	for priority_queue.len(open_set) > 0 {
 		current := priority_queue.pop(&open_set)
-
-		if closed[current.vertex] {
-			continue
-		}
-		closed[current.vertex] = true
-		in_open_set[current.vertex] = false
 
 		if current.vertex == target {
 			return g_score[current.vertex]
 		}
 
 		for neighbor in g.adj[current.vertex] {
-			if closed[neighbor] {
-				continue
-			}
-
 			tentative_g := g_score[current.vertex] + 1
 
 			if tentative_g < g_score[neighbor] {
 				g_score[neighbor] = tentative_g
-				f_score[neighbor] = tentative_g + heuristic(neighbor, target)
+				f_new := tentative_g + heuristic(neighbor, target)
 
-				if !in_open_set[neighbor] {
-					priority_queue.push(&open_set, GPANode{neighbor, f_score[neighbor]})
-					in_open_set[neighbor] = true
+				if f_new < best_f[neighbor] {
+					best_f[neighbor] = f_new
+					priority_queue.push(&open_set, GPANode{f_new, neighbor})
 				}
 			}
 		}

@@ -10,7 +10,7 @@ A collection of 50 tasks across 25 languages - complex, non-synthetic, and inspi
 
 Note on `Mojo`: this is a young language, and many tests use Python interop instead of native implementations, simply because I can't compile libraries for JSON, Regex, or implement certain tasks better due to missing language features. Performance is still very raw.
 
-Note on `Gossamer`: another young, pre-1.0 language. It is measured on its LLVM ahead-of-time back-end (`gos build --release`), the production target; `./test` runs the same program through `gos run` (the bytecode VM with its Cranelift JIT).
+Note on `Gossamer`: another young language. It is measured on its LLVM ahead-of-time back-end (`gos build --release`): the production target. `./test` runs the same program through `gos run` (the interpreter).
 
 ## Why?
 
