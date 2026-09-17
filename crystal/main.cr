@@ -1200,8 +1200,8 @@ module Etc
       private class Node(K, V)
         property key : K
         property value : V
-        property prev : Node(K, V) | Nil
-        property next : Node(K, V) | Nil
+        property prev : Node(K, V)?
+        property next : Node(K, V)?
 
         def initialize(@key, @value, @prev = nil, @next = nil)
         end
@@ -1209,8 +1209,8 @@ module Etc
 
       @capacity : Int32
       @cache = {} of K => Node(K, V)
-      @head : Node(K, V) | Nil = nil
-      @tail : Node(K, V) | Nil = nil
+      @head : Node(K, V)?
+      @tail : Node(K, V)?
       @size = 0
 
       def initialize(@capacity)
