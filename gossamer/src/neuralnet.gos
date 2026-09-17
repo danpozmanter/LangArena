@@ -3,15 +3,25 @@ use bench::Bench
 use config::Config
 use helper
 
-const LEARNING_RATE: f64 = 1.0
-const MOMENTUM: f64 = 0.3
-const RATE: f64 = 0.3
+const INPUT_00: [f64; 2] = [0.0, 0.0]
+const INPUT_01: [f64; 2] = [0.0, 1.0]
+const INPUT_10: [f64; 2] = [1.0, 0.0]
+const INPUT_11: [f64; 2] = [1.0, 1.0]
+const TARGET_0: [f64; 1] = [0.0]
+const TARGET_1: [f64; 1] = [1.0]
 
 struct Synapse {
     weight: f64
     prev_weight: f64
     source_neuron: i64
     dest_neuron: i64
+}
+
+impl Synapse {
+    fn new(source_neuron: i64, dest_neuron: i64, rng: &mut helper::Rng) -> Synapse {
+        let w = rng.next_float(1.0) * 2.0 - 1.0
+        Synapse { weight: w, prev_weight: w, source_neuron: source_neuron, dest_neuron: dest_neuron }
+    }
 }
 
 struct Neuron {
@@ -23,186 +33,177 @@ struct Neuron {
     synapses_out: Vec<i64>
 }
 
-fn new_neuron(rng: &mut helper::Rng) -> Neuron {
-    let t = rng.next_float(1.0) * 2.0 - 1.0
-    Neuron {
-        threshold: t
-        prev_threshold: t
-        output: 0.0
-        error: 0.0
-        synapses_in: #[]
-        synapses_out: #[]
+impl Neuron {
+    const LEARNING_RATE: f64 = 1.0
+    const MOMENTUM: f64 = 0.3
+
+    fn new(rng: &mut helper::Rng) -> Neuron {
+        let t = rng.next_float(1.0) * 2.0 - 1.0
+        Neuron {
+            threshold: t
+            prev_threshold: t
+            output: 0.0
+            error: 0.0
+            synapses_in: #[]
+            synapses_out: #[]
+        }
+    }
+
+    fn derivative(&self) -> f64 { self.output * (1.0 - self.output) }
+
+    fn calculate_output(&mut self, sources: [Neuron], synapses: [Synapse]) {
+        let mut activation = 0.0
+        for synapse_idx in self.synapses_in {
+            let synapse = synapses[synapse_idx]
+            activation += synapse.weight * sources[synapse.source_neuron].output
+        }
+        activation -= self.threshold
+        self.output = 1.0 / (1.0 + math::exp(-activation))
+    }
+
+    fn update_weights(&mut self, rate: f64, sources: [Neuron], synapses: &mut [Synapse]) {
+        for synapse_idx in self.synapses_in {
+            let source_output = sources[synapses[synapse_idx].source_neuron].output
+            let temp_weight = synapses[synapse_idx].weight
+            synapses[synapse_idx].weight += (rate * Neuron::LEARNING_RATE * self.error * source_output) +
+                (Neuron::MOMENTUM * (synapses[synapse_idx].weight - synapses[synapse_idx].prev_weight))
+            synapses[synapse_idx].prev_weight = temp_weight
+        }
+
+        let temp_threshold = self.threshold
+        self.threshold += (rate * Neuron::LEARNING_RATE * self.error * -1.0) +
+            (Neuron::MOMENTUM * (self.threshold - self.prev_threshold))
+        self.prev_threshold = temp_threshold
     }
 }
 
-struct Network {
+struct NeuralNetwork {
     input_layer: Vec<Neuron>
     hidden_layer: Vec<Neuron>
     output_layer: Vec<Neuron>
     synapses: Vec<Synapse>
 }
 
-impl Network {
-    fn new(inputs: i64, hidden: i64, outputs: i64, rng: &mut helper::Rng) -> Network {
-        let mut net = Network {
-            input_layer: #[]
-            hidden_layer: #[]
-            output_layer: #[]
-            synapses: #[]
+impl NeuralNetwork {
+    fn new(inputs: i64, hidden: i64, outputs: i64, rng: &mut helper::Rng) -> NeuralNetwork {
+        let mut input_layer: Vec<Neuron> = #[]
+        for _ in 0..inputs { input_layer.push(Neuron::new(rng)) }
+        let mut hidden_layer: Vec<Neuron> = #[]
+        for _ in 0..hidden { hidden_layer.push(Neuron::new(rng)) }
+        let mut output_layer: Vec<Neuron> = #[]
+        for _ in 0..outputs { output_layer.push(Neuron::new(rng)) }
+        let mut synapses: Vec<Synapse> = #[]
+
+        NeuralNetwork::connect(&mut input_layer, &mut hidden_layer, &mut synapses, rng)
+        NeuralNetwork::connect(&mut hidden_layer, &mut output_layer, &mut synapses, rng)
+
+        NeuralNetwork {
+            input_layer: input_layer
+            hidden_layer: hidden_layer
+            output_layer: output_layer
+            synapses: synapses
         }
-
-        for _ in 0..inputs { net.input_layer.push(new_neuron(rng)) }
-        for _ in 0..hidden { net.hidden_layer.push(new_neuron(rng)) }
-        for _ in 0..outputs { net.output_layer.push(new_neuron(rng)) }
-
-        net.connect_input_to_hidden(rng)
-        net.connect_hidden_to_output(rng)
-        net
     }
 
-    fn connect_input_to_hidden(&mut self, rng: &mut helper::Rng) {
-        for source in 0..self.input_layer.len() {
-            for dest in 0..self.hidden_layer.len() {
-                let idx = self.synapses.len()
-                let w = rng.next_float(1.0) * 2.0 - 1.0
-                self.synapses.push(Synapse {
-                    weight: w, prev_weight: w, source_neuron: source, dest_neuron: dest
-                })
-                self.input_layer[source].synapses_out.push(idx)
-                self.hidden_layer[dest].synapses_in.push(idx)
+    fn connect(
+        sources: &mut [Neuron]
+        destinations: &mut [Neuron]
+        synapses: &mut Vec<Synapse>
+        rng: &mut helper::Rng
+    ) {
+        for source_idx in 0..sources.len() {
+            for dest_idx in 0..destinations.len() {
+                let synapse_idx = synapses.len()
+                synapses.push(Synapse::new(source_idx, dest_idx, rng))
+                sources[source_idx].synapses_out.push(synapse_idx)
+                destinations[dest_idx].synapses_in.push(synapse_idx)
             }
         }
     }
 
-    fn connect_hidden_to_output(&mut self, rng: &mut helper::Rng) {
-        for source in 0..self.hidden_layer.len() {
-            for dest in 0..self.output_layer.len() {
-                let idx = self.synapses.len()
-                let w = rng.next_float(1.0) * 2.0 - 1.0
-                self.synapses.push(Synapse {
-                    weight: w, prev_weight: w, source_neuron: source, dest_neuron: dest
-                })
-                self.hidden_layer[source].synapses_out.push(idx)
-                self.output_layer[dest].synapses_in.push(idx)
-            }
-        }
-    }
-
-    fn activate(&self, neuron: Neuron, sources: Vec<Neuron>) -> f64 {
-        let mut activation = 0.0
-        for idx in neuron.synapses_in {
-            let synapse = self.synapses[idx]
-            activation += synapse.weight * sources[synapse.source_neuron].output
-        }
-        activation -= neuron.threshold
-        1.0 / (1.0 + math::exp(-activation))
-    }
-
-    fn feed_forward(&mut self, inputs: Vec<f64>) {
-        for i in 0..self.input_layer.len() { self.input_layer[i].output = inputs[i] }
-
-        for i in 0..self.hidden_layer.len() {
-            self.hidden_layer[i].output = self.activate(self.hidden_layer[i], self.input_layer)
-        }
-
-        for i in 0..self.output_layer.len() {
-            self.output_layer[i].output = self.activate(self.output_layer[i], self.hidden_layer)
-        }
-    }
-
-    fn update_output_weights(&mut self, i: i64) {
-        let error = self.output_layer[i].error
-        for idx in self.output_layer[i].synapses_in {
-            let source_output = self.hidden_layer[self.synapses[idx].source_neuron].output
-            let previous = self.synapses[idx].weight
-            self.synapses[idx].weight = previous +
-                RATE * LEARNING_RATE * error * source_output +
-                MOMENTUM * (previous - self.synapses[idx].prev_weight)
-            self.synapses[idx].prev_weight = previous
-        }
-
-        let threshold = self.output_layer[i].threshold
-        self.output_layer[i].threshold = threshold -
-            RATE * LEARNING_RATE * error +
-            MOMENTUM * (threshold - self.output_layer[i].prev_threshold)
-        self.output_layer[i].prev_threshold = threshold
-    }
-
-    fn update_hidden_weights(&mut self, i: i64) {
-        let error = self.hidden_layer[i].error
-        for idx in self.hidden_layer[i].synapses_in {
-            let source_output = self.input_layer[self.synapses[idx].source_neuron].output
-            let previous = self.synapses[idx].weight
-            self.synapses[idx].weight = previous +
-                RATE * LEARNING_RATE * error * source_output +
-                MOMENTUM * (previous - self.synapses[idx].prev_weight)
-            self.synapses[idx].prev_weight = previous
-        }
-
-        let threshold = self.hidden_layer[i].threshold
-        self.hidden_layer[i].threshold = threshold -
-            RATE * LEARNING_RATE * error +
-            MOMENTUM * (threshold - self.hidden_layer[i].prev_threshold)
-        self.hidden_layer[i].prev_threshold = threshold
-    }
-
-    fn train(&mut self, inputs: Vec<f64>, targets: Vec<f64>) {
+    fn train(&mut self, inputs: [f64], targets: [f64]) {
         self.feed_forward(inputs)
 
+        let rate = 0.3
+
         for i in 0..self.output_layer.len() {
-            let output = self.output_layer[i].output
-            self.output_layer[i].error = (targets[i] - output) * output * (1.0 - output)
-            self.update_output_weights(i)
+            self.output_layer[i].error = (targets[i] - self.output_layer[i].output) *
+                self.output_layer[i].derivative()
+            self.output_layer[i].update_weights(rate, self.hidden_layer, &mut self.synapses)
         }
 
         for i in 0..self.hidden_layer.len() {
             let mut sum = 0.0
-            for idx in self.hidden_layer[i].synapses_out {
-                let synapse = self.synapses[idx]
+            for synapse_idx in self.hidden_layer[i].synapses_out {
+                let synapse = self.synapses[synapse_idx]
                 sum += synapse.prev_weight * self.output_layer[synapse.dest_neuron].error
             }
-            let output = self.hidden_layer[i].output
-            self.hidden_layer[i].error = sum * output * (1.0 - output)
-            self.update_hidden_weights(i)
+            self.hidden_layer[i].error = sum * self.hidden_layer[i].derivative()
+            self.hidden_layer[i].update_weights(rate, self.input_layer, &mut self.synapses)
         }
     }
+
+    fn feed_forward(&mut self, inputs: [f64]) {
+        for i in 0..self.input_layer.len() { self.input_layer[i].output = inputs[i] }
+
+        for i in 0..self.hidden_layer.len() {
+            self.hidden_layer[i].calculate_output(self.input_layer, self.synapses)
+        }
+
+        for i in 0..self.output_layer.len() {
+            self.output_layer[i].calculate_output(self.hidden_layer, self.synapses)
+        }
+    }
+
+    fn current_outputs(&self) -> Vec<f64> { self.output_layer.map(|neuron| neuron.output) }
 }
 
 pub struct NeuralNet {
-    net: Network
+    xor_net: NeuralNetwork
+    rng: helper::Rng
 }
 
 impl NeuralNet {
     pub fn new(cfg: Config) -> NeuralNet {
         let mut rng = helper::Rng::new()
-        NeuralNet { net: Network::new(2, 10, 1, &mut rng) }
+        NeuralNet { xor_net: NeuralNetwork::new(0, 0, 0, &mut rng), rng: rng }
     }
 }
 
 impl Bench for NeuralNet {
+    fn prepare(&mut self) { self.xor_net = NeuralNetwork::new(2, 10, 1, &mut self.rng) }
+
     fn run(&mut self, iteration_id: i64) {
         for _ in 0..1000 {
-            self.net.train(#[0.0, 0.0], #[0.0])
-            self.net.train(#[1.0, 0.0], #[1.0])
-            self.net.train(#[0.0, 1.0], #[1.0])
-            self.net.train(#[1.0, 1.0], #[0.0])
+            self.xor_net.train(INPUT_00, TARGET_0)
+            self.xor_net.train(INPUT_10, TARGET_1)
+            self.xor_net.train(INPUT_01, TARGET_1)
+            self.xor_net.train(INPUT_11, TARGET_0)
         }
     }
 
     fn checksum(&self) -> i64 {
-        let mut probe = Network {
-            input_layer: self.net.input_layer
-            hidden_layer: self.net.hidden_layer
-            output_layer: self.net.output_layer
-            synapses: self.net.synapses
-        }
+        let mut net_copy = self.xor_net
 
-        let mut sum = 0.0
-        for inputs in #[#[0.0, 0.0], #[0.0, 1.0], #[1.0, 0.0], #[1.0, 1.0]] {
-            probe.feed_forward(inputs)
-            for neuron in probe.output_layer { sum += neuron.output }
-        }
+        net_copy.feed_forward([0.0, 0.0])
+        let outputs1 = net_copy.current_outputs()
 
+        net_copy.feed_forward([0.0, 1.0])
+        let outputs2 = net_copy.current_outputs()
+
+        net_copy.feed_forward([1.0, 0.0])
+        let outputs3 = net_copy.current_outputs()
+
+        net_copy.feed_forward([1.0, 1.0])
+        let outputs4 = net_copy.current_outputs()
+
+        let mut all_outputs: Vec<f64> = #[]
+        all_outputs.extend_from_slice(outputs1)
+        all_outputs.extend_from_slice(outputs2)
+        all_outputs.extend_from_slice(outputs3)
+        all_outputs.extend_from_slice(outputs4)
+
+        let sum = all_outputs.sum()
         helper::checksum_f64(sum)
     }
 }

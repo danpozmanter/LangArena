@@ -56,6 +56,10 @@ struct ArenaNode {
     right: i64
 }
 
+impl ArenaNode {
+    fn new(item: i64) -> ArenaNode { ArenaNode { item: item, left: -1, right: -1 } }
+}
+
 pub struct BinarytreesArena {
     depth: i64
     arena: Vec<ArenaNode>
@@ -69,7 +73,7 @@ impl BinarytreesArena {
 
     fn build(&mut self, item: i64, depth: i64) -> i64 {
         let idx = self.arena.len()
-        self.arena.push(ArenaNode { item: item, left: -1, right: -1 })
+        self.arena.push(ArenaNode::new(item))
 
         if depth > 0 {
             let half = 1 << (depth - 1)

@@ -2,15 +2,24 @@ use bench::Bench
 use config::Config
 use helper
 
+struct Node {
+    key: String
+    value: String
+    prev: Option<i64>
+    next: Option<i64>
+}
+
+impl Node {
+    fn new(key: String, value: String) -> Node { Node { key: key, value: value, prev: None, next: None } }
+}
+
 struct LruCache {
     capacity: i64
-    index: Map<String, i64>
-    keys: Vec<String>
-    values: Vec<String>
-    prev: Vec<i64>
-    next: Vec<i64>
-    head: i64
-    tail: i64
+    cache: Map<String, i64>
+    nodes: Vec<Node>
+    free: Stack<i64>
+    head: Option<i64>
+    tail: Option<i64>
     size: i64
 }
 
@@ -18,90 +27,94 @@ impl LruCache {
     fn new(capacity: i64) -> LruCache {
         LruCache {
             capacity: capacity
-            index: Map::new()
-            keys: #[]
-            values: #[]
-            prev: #[]
-            next: #[]
-            head: -1
-            tail: -1
+            cache: Map::with_capacity(capacity)
+            nodes: Vec::with_capacity(capacity)
+            free: Stack::new()
+            head: None
+            tail: None
             size: 0
         }
     }
 
-    fn detach(&mut self, node: i64) {
-        let p = self.prev[node]
-        let n = self.next[node]
-        if p >= 0 { self.next[p] = n } else { self.head = n }
-        if n >= 0 { self.prev[n] = p } else { self.tail = p }
-    }
-
-    fn attach_front(&mut self, node: i64) {
-        self.prev[node] = -1
-        self.next[node] = self.head
-        if self.head >= 0 { self.prev[self.head] = node }
-        self.head = node
-        if self.tail < 0 { self.tail = node }
-    }
-
     fn get(&mut self, key: String) -> Option<String> {
-        match self.index.get(key) {
-            Some(node) => {
-                if node != self.head {
-                    self.detach(node)
-                    self.attach_front(node)
-                }
-                Some(self.values[node])
-            }
-            None => None
-        }
+        let node = self.cache.get(key)?
+        self.move_to_front(node)
+        Some(self.nodes[node].value)
     }
 
     fn put(&mut self, key: String, value: String) {
-        if let Some(node) = self.index.get(key) {
-            self.values[node] = value
-            if node != self.head {
-                self.detach(node)
-                self.attach_front(node)
+        if let Some(node) = self.cache.get(key) {
+            self.nodes[node].value = value
+            self.move_to_front(node)
+            return
+        }
+
+        if self.size >= self.capacity { self.remove_oldest() }
+
+        let node = match self.free.pop() {
+            Some(slot) => {
+                self.nodes[slot] = Node::new(key, value)
+                slot
             }
-            return
+            None => {
+                self.nodes.push(Node::new(key, value))
+                self.nodes.len() - 1
+            }
         }
 
-        if self.size >= self.capacity {
-            let evicted = self.tail
-            let _ = self.index.remove(self.keys[evicted])
-            self.detach(evicted)
-
-            self.keys[evicted] = key
-            self.values[evicted] = value
-            let _ = self.index.insert(key, evicted)
-            self.attach_front(evicted)
-            return
-        }
-
-        let node = self.keys.len()
-        self.keys.push(key)
-        self.values.push(value)
-        self.prev.push(-1)
-        self.next.push(-1)
-        let _ = self.index.insert(key, node)
-        self.attach_front(node)
+        self.cache.insert(key, node)
+        self.add_to_front(node)
         self.size += 1
     }
 
     fn len(&self) -> i64 { self.size }
 
-    fn clear(&mut self) {
-        self.index.clear()
-        self.keys.clear()
-        self.values.clear()
-        self.prev.clear()
-        self.next.clear()
-        self.head = -1
-        self.tail = -1
-        self.size = 0
+    fn move_to_front(&mut self, node: i64) {
+        if Some(node) == self.head { return }
+
+        let prev = self.nodes[node].prev
+        let next = self.nodes[node].next
+
+        if let Some(prev_node) = prev { self.nodes[prev_node].next = next }
+        if let Some(next_node) = next { self.nodes[next_node].prev = prev }
+
+        if Some(node) == self.tail { self.tail = prev }
+
+        self.nodes[node].prev = None
+        self.nodes[node].next = self.head
+
+        if let Some(head_node) = self.head { self.nodes[head_node].prev = Some(node) }
+
+        self.head = Some(node)
+
+        if self.tail.is_none() { self.tail = Some(node) }
     }
 
+    fn add_to_front(&mut self, node: i64) {
+        self.nodes[node].next = self.head
+
+        if let Some(head_node) = self.head { self.nodes[head_node].prev = Some(node) }
+
+        self.head = Some(node)
+
+        if self.tail.is_none() { self.tail = Some(node) }
+    }
+
+    fn remove_oldest(&mut self) {
+        if let Some(tail_node) = self.tail {
+            let _ = self.cache.remove(self.nodes[tail_node].key)
+
+            let prev = self.nodes[tail_node].prev
+            if let Some(prev_node) = prev { self.nodes[prev_node].next = None }
+
+            self.tail = prev
+
+            if Some(tail_node) == self.head { self.head = None }
+
+            self.free.push(tail_node)
+            self.size -= 1
+        }
+    }
 }
 
 pub struct CacheSimulation {
@@ -129,7 +142,7 @@ impl CacheSimulation {
 
 impl Bench for CacheSimulation {
     fn prepare(&mut self) {
-        self.cache.clear()
+        self.cache = LruCache::new(self.cache_size)
         self.hits = 0
         self.misses = 0
     }

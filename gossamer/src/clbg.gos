@@ -14,11 +14,11 @@ impl Fannkuchredux {
     }
 
     fn fannkuch(&self, n: i64) -> (i64, i64) {
-        let mut perm1: Vec<i64> = #[0; 32]
+        let mut perm1: [i64; 32] = [0; 32]
         for i in 0..32 { perm1[i] = i }
 
-        let mut perm: Vec<i64> = #[0; 32]
-        let mut count: Vec<i64> = #[0; 32]
+        let mut perm: [i64; 32] = [0; 32]
+        let mut count: [i64; 32] = [0; 32]
         let mut max_flips = 0
         let mut perm_count = 0
         let mut checksum = 0
@@ -95,10 +95,11 @@ impl Bench for Mandelbrot {
         let w = self.w
         let h = self.h
 
-        for b in format("P4\n{} {}\n", w, h).bytes() { self.bitmap.push(b) }
+        let header = format("P4\n{} {}\n", w, h)
+        self.bitmap.extend_from_slice(header.as_bytes())
 
         let mut bit_num = 0
-        let mut byte_acc: i64 = 0
+        let mut byte_acc: u8 = 0
 
         for y in 0..h {
             let ci = (2.0 * y as f64 / h as f64) - 1.0
@@ -118,17 +119,17 @@ impl Bench for Mandelbrot {
                     i += 1
                 }
 
-                byte_acc = (byte_acc << 1) & 0xFF
-                if tr + ti <= MANDELBROT_LIMIT * MANDELBROT_LIMIT { byte_acc |= 1 }
+                byte_acc <<= 1
+                if tr + ti <= MANDELBROT_LIMIT * MANDELBROT_LIMIT { byte_acc |= 0x01 }
                 bit_num += 1
 
                 if bit_num == 8 {
-                    self.bitmap.push(byte_acc as u8)
+                    self.bitmap.push(byte_acc)
                     byte_acc = 0
                     bit_num = 0
                 } else if x == w - 1 {
-                    byte_acc = (byte_acc << (8 - (w % 8))) & 0xFF
-                    self.bitmap.push(byte_acc as u8)
+                    byte_acc <<= (8 - (w % 8)) as u8
+                    self.bitmap.push(byte_acc)
                     byte_acc = 0
                     bit_num = 0
                 }
@@ -143,125 +144,165 @@ const SOLAR_MASS: f64 = 4.0 * 3.141592653589793 * 3.141592653589793
 const DAYS_PER_YEAR: f64 = 365.24
 
 struct Planet {
-    x: f64, y: f64, z: f64
-    vx: f64, vy: f64, vz: f64
+    x: f64
+    y: f64
+    z: f64
+    vx: f64
+    vy: f64
+    vz: f64
     mass: f64
 }
 
-fn planet(x: f64, y: f64, z: f64, vx: f64, vy: f64, vz: f64, mass: f64) -> Planet {
-    Planet {
-        x: x, y: y, z: z
-        vx: vx * DAYS_PER_YEAR, vy: vy * DAYS_PER_YEAR, vz: vz * DAYS_PER_YEAR
-        mass: mass * SOLAR_MASS
+impl Planet {
+    fn new(x: f64, y: f64, z: f64, vx: f64, vy: f64, vz: f64, mass: f64) -> Planet {
+        Planet {
+            x: x
+            y: y
+            z: z
+            vx: vx * DAYS_PER_YEAR
+            vy: vy * DAYS_PER_YEAR
+            vz: vz * DAYS_PER_YEAR
+            mass: mass * SOLAR_MASS
+        }
+    }
+
+    fn advance(bodies: &mut [Planet], i: i64, dt: f64) {
+        for j in i + 1..bodies.len() {
+            let dx = bodies[i].x - bodies[j].x
+            let dy = bodies[i].y - bodies[j].y
+            let dz = bodies[i].z - bodies[j].z
+
+            let distance = math::sqrt(dx * dx + dy * dy + dz * dz)
+            let mag = dt / (distance * distance * distance)
+            let b_mass_mag = bodies[i].mass * mag
+            let b2_mass_mag = bodies[j].mass * mag
+
+            bodies[i].vx -= dx * b2_mass_mag
+            bodies[i].vy -= dy * b2_mass_mag
+            bodies[i].vz -= dz * b2_mass_mag
+            bodies[j].vx += dx * b_mass_mag
+            bodies[j].vy += dy * b_mass_mag
+            bodies[j].vz += dz * b_mass_mag
+        }
+
+        bodies[i].x += dt * bodies[i].vx
+        bodies[i].y += dt * bodies[i].vy
+        bodies[i].z += dt * bodies[i].vz
     }
 }
 
-fn solar_system() -> Vec<Planet> {
+fn energy(bodies: [Planet]) -> f64 {
+    let mut e = 0.0
+    let nbodies = bodies.len()
+
+    for i in 0..nbodies {
+        let b = bodies[i]
+        e += 0.5 * b.mass * (b.vx * b.vx + b.vy * b.vy + b.vz * b.vz)
+
+        for j in i + 1..nbodies {
+            let b2 = bodies[j]
+            let dx = b.x - b2.x
+            let dy = b.y - b2.y
+            let dz = b.z - b2.z
+            let distance = math::sqrt(dx * dx + dy * dy + dz * dz)
+            e -= (b.mass * b2.mass) / distance
+        }
+    }
+    e
+}
+
+fn offset_momentum(bodies: &mut [Planet]) {
+    let mut px = 0.0
+    let mut py = 0.0
+    let mut pz = 0.0
+
+    for b in bodies {
+        let m = b.mass
+        px += b.vx * m
+        py += b.vy * m
+        pz += b.vz * m
+    }
+
+    if !bodies.is_empty() {
+        bodies[0].vx = -px / SOLAR_MASS
+        bodies[0].vy = -py / SOLAR_MASS
+        bodies[0].vz = -pz / SOLAR_MASS
+    }
+}
+
+fn create_bodies() -> Vec<Planet> {
     #[
-        planet(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0)
-        planet(4.84143144246472090e+00, -1.16032004402742839e+00, -1.03622044471123109e-01
-            1.66007664274403694e-03, 7.69901118419740425e-03, -6.90460016972063023e-05
-            9.54791938424326609e-04)
-        planet(8.34336671824457987e+00, 4.12479856412430479e+00, -4.03523417114321381e-01
-            -2.76742510726862411e-03, 4.99852801234917238e-03, 2.30417297573763929e-05
-            2.85885980666130812e-04)
-        planet(1.28943695621391310e+01, -1.51111514016986312e+01, -2.23307578892655734e-01
-            2.96460137564761618e-03, 2.37847173959480950e-03, -2.96589568540237556e-05
-            4.36624404335156298e-05)
-        planet(1.53796971148509165e+01, -2.59193146099879641e+01, 1.79258772950371181e-01
-            2.68067772490389322e-03, 1.62824170038242295e-03, -9.51592254519715870e-05
-            5.15138902046611451e-05)
+        Planet::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0)
+        Planet::new(
+            4.84143144246472090e+00
+            -1.16032004402742839e+00
+            -1.03622044471123109e-01
+            1.66007664274403694e-03
+            7.69901118419740425e-03
+            -6.90460016972063023e-05
+            9.54791938424326609e-04
+        )
+        Planet::new(
+            8.34336671824457987e+00
+            4.12479856412430479e+00
+            -4.03523417114321381e-01
+            -2.76742510726862411e-03
+            4.99852801234917238e-03
+            2.30417297573763929e-05
+            2.85885980666130812e-04
+        )
+        Planet::new(
+            1.28943695621391310e+01
+            -1.51111514016986312e+01
+            -2.23307578892655734e-01
+            2.96460137564761618e-03
+            2.37847173959480950e-03
+            -2.96589568540237556e-05
+            4.36624404335156298e-05
+        )
+        Planet::new(
+            1.53796971148509165e+01
+            -2.59193146099879641e+01
+            1.79258772950371181e-01
+            2.68067772490389322e-03
+            1.62824170038242295e-03
+            -9.51592254519715870e-05
+            5.15138902046611451e-05
+        )
     ]
 }
 
 pub struct Nbody {
     bodies: Vec<Planet>
-    initial_energy: f64
+    v1: f64
 }
 
 impl Nbody {
-    pub fn new(cfg: Config) -> Nbody {
-        Nbody { bodies: solar_system(), initial_energy: 0.0 }
-    }
-
-    fn energy(&self) -> f64 {
-        let mut e = 0.0
-        let n = self.bodies.len()
-
-        for i in 0..n {
-            let b = self.bodies[i]
-            e += 0.5 * b.mass * (b.vx * b.vx + b.vy * b.vy + b.vz * b.vz)
-
-            for j in (i + 1)..n {
-                let b2 = self.bodies[j]
-                let dx = b.x - b2.x
-                let dy = b.y - b2.y
-                let dz = b.z - b2.z
-                e -= (b.mass * b2.mass) / math::sqrt(dx * dx + dy * dy + dz * dz)
-            }
-        }
-        e
-    }
-
-    fn offset_momentum(&mut self) {
-        let mut px = 0.0
-        let mut py = 0.0
-        let mut pz = 0.0
-
-        for b in self.bodies {
-            px += b.vx * b.mass
-            py += b.vy * b.mass
-            pz += b.vz * b.mass
-        }
-
-        self.bodies[0].vx = -px / SOLAR_MASS
-        self.bodies[0].vy = -py / SOLAR_MASS
-        self.bodies[0].vz = -pz / SOLAR_MASS
-    }
-
-    fn advance(&mut self, dt: f64) {
-        let n = self.bodies.len()
-
-        for i in 0..n {
-            for j in (i + 1)..n {
-                let dx = self.bodies[i].x - self.bodies[j].x
-                let dy = self.bodies[i].y - self.bodies[j].y
-                let dz = self.bodies[i].z - self.bodies[j].z
-
-                let distance = math::sqrt(dx * dx + dy * dy + dz * dz)
-                let mag = dt / (distance * distance * distance)
-                let mi = self.bodies[i].mass * mag
-                let mj = self.bodies[j].mass * mag
-
-                self.bodies[i].vx -= dx * mj
-                self.bodies[i].vy -= dy * mj
-                self.bodies[i].vz -= dz * mj
-                self.bodies[j].vx += dx * mi
-                self.bodies[j].vy += dy * mi
-                self.bodies[j].vz += dz * mi
-            }
-
-            self.bodies[i].x += dt * self.bodies[i].vx
-            self.bodies[i].y += dt * self.bodies[i].vy
-            self.bodies[i].z += dt * self.bodies[i].vz
-        }
-    }
+    pub fn new(cfg: Config) -> Nbody { Nbody { bodies: create_bodies(), v1: 0.0 } }
 }
 
 impl Bench for Nbody {
     fn prepare(&mut self) {
-        self.offset_momentum()
-        self.initial_energy = self.energy()
+        offset_momentum(&mut self.bodies)
+        self.v1 = energy(self.bodies)
     }
 
     fn run(&mut self, iteration_id: i64) {
-        for _ in 0..1000 { self.advance(0.01) }
+        let nbodies = self.bodies.len()
+        let dt = 0.01
+
+        for _ in 0..1000 {
+            let mut i = 0
+            while i < nbodies {
+                Planet::advance(&mut self.bodies, i, dt)
+                i += 1
+            }
+        }
     }
 
     fn checksum(&self) -> i64 {
-        let before = helper::checksum_f64(self.initial_energy)
-        let after = helper::checksum_f64(self.energy())
-        ((before << 5) & helper::MASK32) & after
+        let v2 = energy(self.bodies)
+        ((helper::checksum_f64(self.v1) << 5) & helper::MASK32) & helper::checksum_f64(v2)
     }
 }
 

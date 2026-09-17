@@ -2,25 +2,23 @@ use bench::Bench
 use config::Config
 use helper
 
-const CELL_MASK: i64 = 0xFF
-
 struct Tape {
-    cells: Vec<u8>
+    tape: Vec<u8>
     pos: i64
 }
 
 impl Tape {
-    fn new(size: i64) -> Tape { Tape { cells: #[0; size], pos: 0 } }
+    fn new() -> Tape { Tape { tape: #[0; 30_000], pos: 0 } }
 
-    fn get(&self) -> i64 { self.cells[self.pos] as i64 }
+    fn get(&self) -> u8 { self.tape[self.pos] }
 
-    fn add(&mut self, delta: i64) {
-        self.cells[self.pos] = ((self.cells[self.pos] as i64 + delta) & CELL_MASK) as u8
-    }
+    fn inc(&mut self) { self.tape[self.pos] +%= 1 }
+
+    fn dec(&mut self) { self.tape[self.pos] -%= 1 }
 
     fn advance(&mut self) {
         self.pos += 1
-        if self.pos >= self.cells.len() { self.cells.push(0) }
+        if self.pos >= self.tape.len() { self.tape.push(0) }
     }
 
     fn devance(&mut self) {
@@ -34,7 +32,7 @@ struct Program {
 }
 
 impl Program {
-    fn compile(text: String) -> Program {
+    fn new(text: String) -> Option<Program> {
         let mut commands: Vec<u8> = #[]
         for b in text.bytes() {
             if matches(b, b'+' | b'-' | b'>' | b'<' | b'[' | b']' | b'.' | b',') {
@@ -42,71 +40,79 @@ impl Program {
             }
         }
 
+        if commands.is_empty() { return None }
+
         let mut jumps: Vec<i64> = #[0; commands.len()]
         let mut stack: Vec<i64> = #[]
 
         for i in 0..commands.len() {
-            if commands[i] == b'[' {
-                stack.push(i)
-            } else if commands[i] == b']' {
-                let start = stack.pop().unwrap_or(0)
-                jumps[start] = i
-                jumps[i] = start
+            match commands[i] {
+                b'[' => stack.push(i)
+                b']' => {
+                    let start = stack.pop()?
+                    jumps[start] = i
+                    jumps[i] = start
+                }
+                _ => ()
             }
         }
 
-        Program { commands: commands, jumps: jumps }
+        if stack.is_empty() { Some(Program { commands: commands, jumps: jumps }) } else { None }
     }
 
-    fn run(&self) -> i64 {
-        let mut tape = Tape::new(30_000)
+    fn run(&self) -> Option<i64> {
+        let mut tape = Tape::new()
         let mut pc = 0
         let mut result: i64 = 0
 
         while pc < self.commands.len() {
-            let cmd = self.commands[pc]
-            let mut next_pc = pc + 1
-            match cmd {
-                b'+' => tape.add(1)
-                b'-' => tape.add(-1)
+            match self.commands[pc] {
+                b'+' => tape.inc()
+                b'-' => tape.dec()
                 b'>' => tape.advance()
                 b'<' => tape.devance()
-                b'[' => if tape.get() == 0 { next_pc = self.jumps[pc] + 1 }
-                b']' => if tape.get() != 0 { next_pc = self.jumps[pc] + 1 }
-                b'.' => result = ((result << 2) + tape.get()) & helper::MASK32
-                _ => ()
+                b'[' => if tape.get() == 0 { pc = self.jumps[pc] }
+                b']' => if tape.get() != 0 { pc = self.jumps[pc] }
+                b'.' => result = ((result << 2) + tape.get() as i64) & helper::MASK32
+                _ => return None
             }
-            pc = next_pc
+            pc += 1
         }
 
-        result
+        Some(result)
     }
 }
 
 pub struct BrainfuckArray {
-    program: String
-    warmup_program: String
+    program_text: String
+    warmup_text: String
     result: i64
 }
 
 impl BrainfuckArray {
     pub fn new(cfg: Config) -> BrainfuckArray {
         BrainfuckArray {
-            program: cfg.str("Brainfuck::Array", "program")
-            warmup_program: cfg.str("Brainfuck::Array", "warmup_program")
+            program_text: cfg.str("Brainfuck::Array", "program")
+            warmup_text: cfg.str("Brainfuck::Array", "warmup_program")
             result: 0
         }
+    }
+
+    fn run_program(&self, source: String) -> Option<i64> {
+        let program = Program::new(source)?
+        program.run()
     }
 }
 
 impl Bench for BrainfuckArray {
     fn warmup(&mut self, iterations: i64) {
-        for _ in 0..iterations { Program::compile(self.warmup_program).run() }
+        for _ in 0..iterations { let _ = self.run_program(self.warmup_text) }
     }
 
     fn run(&mut self, iteration_id: i64) {
-        let value = Program::compile(self.program).run()
-        self.result = (self.result + value) & helper::MASK32
+        if let Some(value) = self.run_program(self.program_text) {
+            self.result = (self.result + value) & helper::MASK32
+        }
     }
 
     fn checksum(&self) -> i64 { self.result }
@@ -121,85 +127,107 @@ enum Op {
     Loop(Vec<Op>)
 }
 
-struct BrainfuckParser {
-    bytes: Vec<u8>
+struct OpTape {
     pos: i64
+    tape: Vec<u8>
 }
 
-impl BrainfuckParser {
-    fn parse(&mut self) -> Vec<Op> {
-        let mut ops: Vec<Op> = #[]
-        while self.pos < self.bytes.len() {
-            let b = self.bytes[self.pos]
-            self.pos += 1
-            match b {
-                b'-' => ops.push(Op::Dec)
-                b'+' => ops.push(Op::Inc)
-                b'<' => ops.push(Op::Prev)
-                b'>' => ops.push(Op::Next)
-                b'.' => ops.push(Op::Print)
-                b'[' => ops.push(Op::Loop(self.parse()))
-                b']' => return ops
-                _ => ()
+impl OpTape {
+    fn new() -> OpTape { OpTape { pos: 0, tape: #[0] } }
+
+    fn current_cell(&self) -> u8 { self.tape[self.pos] }
+
+    fn inc(&mut self) { self.tape[self.pos] +%= 1 }
+
+    fn dec(&mut self) { self.tape[self.pos] -%= 1 }
+
+    fn prev(&mut self) {
+        if self.pos > 0 { self.pos -= 1 }
+    }
+
+    fn next(&mut self) {
+        self.pos += 1
+        if self.pos >= self.tape.len() { self.tape.resize(self.pos + 1, 0) }
+    }
+}
+
+struct OpProgram {
+    ops: Vec<Op>
+}
+
+impl OpProgram {
+    fn new(code: String) -> OpProgram {
+        let mut pos = 0
+        OpProgram { ops: OpProgram::parse(code.as_bytes(), &mut pos) }
+    }
+
+    fn parse(bytes: [u8], pos: &mut i64) -> Vec<Op> {
+        let mut buf: Vec<Op> = #[]
+        while *pos < bytes.len() {
+            let byte = bytes[*pos]
+            *pos += 1
+            match byte {
+                b'-' => buf.push(Op::Dec)
+                b'+' => buf.push(Op::Inc)
+                b'<' => buf.push(Op::Prev)
+                b'>' => buf.push(Op::Next)
+                b'.' => buf.push(Op::Print)
+                b'[' => buf.push(Op::Loop(OpProgram::parse(bytes, pos)))
+                b']' => break
+                _ => continue
             }
         }
-        ops
+        buf
+    }
+
+    fn run(&self) -> i64 {
+        let mut tape = OpTape::new()
+        let mut result: i64 = 0
+        self.execute(self.ops, &mut tape, &mut result)
+        result
+    }
+
+    fn execute(&self, program: [Op], tape: &mut OpTape, result: &mut i64) {
+        for op in program {
+            match op {
+                Op::Dec => tape.dec()
+                Op::Inc => tape.inc()
+                Op::Prev => tape.prev()
+                Op::Next => tape.next()
+                Op::Print => *result = (*result << 2) +% tape.current_cell() as i64
+                Op::Loop(inner) => {
+                    while tape.current_cell() != 0 { self.execute(inner, tape, result) }
+                }
+            }
+        }
     }
 }
 
 pub struct BrainfuckRecursion {
-    program: String
-    warmup_program: String
-    tape: Tape
+    text: String
+    warmup_text: String
     result: i64
 }
 
 impl BrainfuckRecursion {
     pub fn new(cfg: Config) -> BrainfuckRecursion {
         BrainfuckRecursion {
-            program: cfg.str("Brainfuck::Recursion", "program")
-            warmup_program: cfg.str("Brainfuck::Recursion", "warmup_program")
-            tape: Tape::new(1)
+            text: cfg.str("Brainfuck::Recursion", "program")
+            warmup_text: cfg.str("Brainfuck::Recursion", "warmup_program")
             result: 0
         }
     }
 
-    fn execute(&mut self, ops: Vec<Op>, result: i64) -> i64 {
-        let mut acc = result
-        for op in ops {
-            let mut next_acc = acc
-            match op {
-                Op::Dec => self.tape.add(-1)
-                Op::Inc => self.tape.add(1)
-                Op::Prev => self.tape.devance()
-                Op::Next => self.tape.advance()
-                Op::Print => next_acc = ((acc << 2) + self.tape.get()) & helper::MASK32
-                Op::Loop(inner) => {
-                    let mut loop_acc = acc
-                    while self.tape.get() != 0 { loop_acc = self.execute(inner, loop_acc) }
-                    next_acc = loop_acc
-                }
-            }
-            acc = next_acc
-        }
-        acc
-    }
-
-    fn interpret(&mut self, text: String) -> i64 {
-        let mut parser = BrainfuckParser { bytes: text.as_bytes(), pos: 0 }
-        let ops = parser.parse()
-        self.tape = Tape::new(1)
-        self.execute(ops, 0)
-    }
+    fn run_text(&self, text: String) -> i64 { OpProgram::new(text).run() }
 }
 
 impl Bench for BrainfuckRecursion {
     fn warmup(&mut self, iterations: i64) {
-        for _ in 0..iterations { self.interpret(self.warmup_program) }
+        for _ in 0..iterations { self.run_text(self.warmup_text) }
     }
 
     fn run(&mut self, iteration_id: i64) {
-        let value = self.interpret(self.program)
+        let value = self.run_text(self.text)
         self.result = (self.result + value) & helper::MASK32
     }
 

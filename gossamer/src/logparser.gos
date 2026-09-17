@@ -3,21 +3,21 @@ use bench::Bench
 use config::Config
 use helper
 
-fn patterns() -> Vec<String> {
+fn patterns() -> Vec<(String, String)> {
     #[
-        " [5][0-9]{2} | [4][0-9]{2} "
-        "(?i)bot|crawler|scanner|spider|indexing|crawl|robot|spider"
-        "(?i)etc/passwd|wp-admin|\\.\\./"
-        "\\d+\\.\\d+\\.\\d+\\.35"
-        "/api/[^ \"]+"
-        "POST [^ ]* HTTP"
-        "(?i)/login|/signin"
-        "(?i)get|post|put"
-        "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}"
-        "password=[^&\\s\"]+"
-        "token=[^&\\s\"]+|api[_-]?key=[^&\\s\"]+"
-        "session[_-]?id=[^&\\s\"]+"
-        "\\[\\d+/\\w+/\\d+:1[3-7]:\\d+:\\d+ [+\\-]\\d+\\]"
+        ("errors", " [5][0-9]{2} | [4][0-9]{2} ")
+        ("bots", "(?i)bot|crawler|scanner|spider|indexing|crawl|robot|spider")
+        ("suspicious", "(?i)etc/passwd|wp-admin|\\.\\./")
+        ("ips", "\\d+\\.\\d+\\.\\d+\\.35")
+        ("api_calls", "/api/[^ \"]+")
+        ("post_requests", "POST [^ ]* HTTP")
+        ("auth_attempts", "(?i)/login|/signin")
+        ("methods", "(?i)get|post|put")
+        ("emails", "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}")
+        ("passwords", "password=[^&\\s\"]+")
+        ("tokens", "token=[^&\\s\"]+|api[_-]?key=[^&\\s\"]+")
+        ("sessions", "session[_-]?id=[^&\\s\"]+")
+        ("peak_hours", "\\[\\d+/\\w+/\\d+:1[3-7]:\\d+:\\d+ [+\\-]\\d+\\]")
     ]
 }
 
@@ -40,56 +40,60 @@ const DOMAINS: [String; 6] = [
 
 pub struct LogParser {
     lines_count: i64
-    patterns: Vec<regex::Pattern>
+    patterns: Vec<(String, regex::Pattern)>
+    ips: Vec<String>
     log: String
     result: i64
 }
 
 impl LogParser {
     pub fn new(cfg: Config) -> LogParser {
-        let mut compiled: Vec<regex::Pattern> = #[]
-        for pattern in patterns() { compiled.push(regex::compile(pattern).unwrap()) }
+        let mut compiled: Vec<(String, regex::Pattern)> = #[]
+        for (name, pattern) in patterns() { compiled.push((name, regex::compile(pattern).unwrap())) }
         LogParser {
             lines_count: cfg.int("Etc::LogParser", "lines_count")
             patterns: compiled
+            ips: (1..=255).map(|i| format("192.168.1.{}", i)).collect()
             log: ""
             result: 0
         }
     }
-}
 
-fn log_line(i: i64) -> String {
-    let mut line = format("192.168.1.{} - - [{}/Oct/2023:{}:55:36 +0000] \"{} "
-        i % 255 + 1, i % 31, i % 60, METHODS[i % METHODS.len()])
+    fn generate_log_line(&self, i: i64) -> String {
+        let mut line = format("{} - - [{}/Oct/2023:{}:55:36 +0000] \"{} "
+            self.ips[i % self.ips.len()], i % 31, i % 60, METHODS[i % METHODS.len()])
 
-    if i % 3 == 0 {
-        line.push_str(format("/login?email={}{}@{}&password=secret{}"
-            USERS[i % USERS.len()], i % 100, DOMAINS[i % DOMAINS.len()], i % 10_000))
-    } else if i % 5 == 0 {
-        line.push_str("/api/data?token=")
-        for _ in 0..(i % 3 + 1) { line.push_str("abcdef123456") }
-    } else if i % 7 == 0 {
-        line.push_str(format("/user/profile?session_id=sess_{:x}", i * 12_345))
-    } else {
-        line.push_str(PATHS[i % PATHS.len()])
+        if i % 3 == 0 {
+            line.push_str(format("/login?email={}{}@{}&password=secret{}"
+                USERS[i % USERS.len()], i % 100, DOMAINS[i % DOMAINS.len()], i % 10_000))
+        } else if i % 5 == 0 {
+            line.push_str("/api/data?token=")
+            for _ in 0..(i % 3 + 1) { line.push_str("abcdef123456") }
+        } else if i % 7 == 0 {
+            line.push_str(format("/user/profile?session_id=sess_{:x}", i * 12_345))
+        } else {
+            line.push_str(PATHS[i % PATHS.len()])
+        }
+
+        line.push_str(format(" HTTP/1.1\" {} 2326 \"http://{}\" \"{}\"\n"
+            STATUSES[i % STATUSES.len()], DOMAINS[i % DOMAINS.len()], AGENTS[i % AGENTS.len()]))
+
+        line
     }
-
-    line.push_str(format(" HTTP/1.1\" {} 2326 \"http://{}\" \"{}\"\n"
-        STATUSES[i % STATUSES.len()], DOMAINS[i % DOMAINS.len()], AGENTS[i % AGENTS.len()]))
-
-    line
 }
 
 impl Bench for LogParser {
     fn prepare(&mut self) {
         let mut log = String::with_capacity(self.lines_count * 200)
-        for i in 0..self.lines_count { log.push_str(log_line(i)) }
+        for i in 0..self.lines_count { log.push_str(self.generate_log_line(i)) }
         self.log = log
     }
 
     fn run(&mut self, iteration_id: i64) {
-        let mut total = 0
-        for pattern in self.patterns { total += pattern.find_all(self.log).len() }
+        let mut counts: Map<String, i64> = Map::new()
+        for (name, pattern) in self.patterns { counts.insert(name, pattern.count(self.log)) }
+
+        let total = counts.values().sum()
         self.result = (self.result + total) & helper::MASK32
     }
 
