@@ -3162,8 +3162,6 @@ module Compress
       n = input.bytesize
       return BWTResult.new(Bytes.new(0), 0) if n == 0
 
-      sa = Array.new(n) { |i| i }
-
       counts = Array.new(256, 0)
       input.each { |byte| counts[byte] += 1 }
 
@@ -3174,23 +3172,22 @@ module Compress
         total += counts[i]
       end
 
+      sa = Array.new(n, 0)
       temp_counts = Array.new(256, 0)
-      sorted_sa = Array.new(n, 0)
       n.times do |i|
-        idx = sa[i]
-        byte = input[idx]
+        byte = input[i]
         pos = positions[byte] + temp_counts[byte]
-        sorted_sa[pos] = idx
+        sa[pos] = i
         temp_counts[byte] += 1
       end
-      sa = sorted_sa
 
       if n > 1
         rank = Array.new(n, 0)
         current_rank = 0
         prev_char = input[sa[0]]
 
-        sa.each_with_index do |idx, i|
+        n.times do |i|
+          idx = sa[i]
           if input[idx] != prev_char
             current_rank += 1
             prev_char = input[idx]
@@ -3203,21 +3200,22 @@ module Compress
           pairs = Array.new(n) { |i| {rank[i], rank[(i + k) % n]} }
 
           sa.sort! do |a, b|
-            pair_a = pairs[a]
-            pair_b = pairs[b]
-            if pair_a[0] != pair_b[0]
-              pair_a[0] <=> pair_b[0]
+            pa = pairs[a]
+            pb = pairs[b]
+            if pa[0] != pb[0]
+              pa[0] <=> pb[0]
             else
-              pair_a[1] <=> pair_b[1]
+              pa[1] <=> pb[1]
             end
           end
 
           new_rank = Array.new(n, 0)
           new_rank[sa[0]] = 0
           (1...n).each do |i|
-            prev_pair = pairs[sa[i - 1]]
-            curr_pair = pairs[sa[i]]
-            new_rank[sa[i]] = new_rank[sa[i - 1]] + (prev_pair != curr_pair ? 1 : 0)
+            prev = sa[i - 1]
+            curr = sa[i]
+            same = pairs[prev] == pairs[curr]
+            new_rank[curr] = new_rank[prev] + (same ? 0 : 1)
           end
 
           rank = new_rank

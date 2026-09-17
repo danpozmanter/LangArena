@@ -66,13 +66,16 @@ proc bwtTransform*(input: seq[byte]): BWTResult =
 
     var k = 1
     while k < n:
+      var pairs = newSeq[(int, int)](n)
+      for i in 0..<n:
+        pairs[i] = (rank[i], rank[(i + k) mod n])
 
       sa.sort(proc(a, b: int): int =
-        let ra = rank[a]
-        let rb = rank[b]
-        if ra != rb:
-          return cmp(ra, rb)
-        return cmp(rank[(a + k) mod n], rank[(b + k) mod n])
+        let pa = pairs[a]
+        let pb = pairs[b]
+        if pa[0] != pb[0]:
+          return cmp(pa[0], pb[0])
+        return cmp(pa[1], pb[1])
       )
 
       var newRank = newSeq[int](n)
@@ -80,9 +83,10 @@ proc bwtTransform*(input: seq[byte]): BWTResult =
       for i in 1..<n:
         let prevIdx = sa[i-1]
         let currIdx = sa[i]
-        newRank[currIdx] = newRank[prevIdx] +
-          (if rank[prevIdx] != rank[currIdx] or
-             rank[(prevIdx + k) mod n] != rank[(currIdx + k) mod n]: 1 else: 0)
+        if pairs[prevIdx] == pairs[currIdx]:
+          newRank[currIdx] = newRank[prevIdx]
+        else:
+          newRank[currIdx] = newRank[prevIdx] + 1
 
       rank = newRank
       k *= 2

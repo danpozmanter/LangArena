@@ -3719,20 +3719,19 @@ class CompressBWTEncode extends Benchmark
 
             $k = 1;
             while ($k < $n) {
-                $suffixes = $sa;
-                $rank1s = [];
-                $rank2s = [];
-
+                $pairs = [];
                 foreach ($sa as $suffix) {
-                    $rank1s[] = $rank[$suffix];
-                    $rank2s[] = $rank[($suffix + $k) % $n];
+                    $pairs[$suffix] = [$rank[$suffix], $rank[($suffix + $k) % $n]];
                 }
 
-                array_multisort(
-                    $rank1s, SORT_ASC, SORT_NUMERIC,
-                    $rank2s, SORT_ASC, SORT_NUMERIC,
-                    $suffixes
-                );
+                $suffixes = $sa;
+                usort($suffixes, function ($a, $b) use ($pairs) {
+                    $pa = $pairs[$a];
+                    $pb = $pairs[$b];
+                    if ($pa[0] !== $pb[0])
+                        return $pa[0] - $pb[0];
+                    return $pa[1] - $pb[1];
+                });
                 $sa = $suffixes;
 
                 $newRank = array_fill(0, $n, 0);
@@ -3740,8 +3739,7 @@ class CompressBWTEncode extends Benchmark
                     $prev = $sa[$i - 1];
                     $curr = $sa[$i];
                     $newRank[$curr] = $newRank[$prev]
-                        + (($rank[$prev] !== $rank[$curr] ||
-                            $rank[($prev + $k) % $n] !== $rank[($curr + $k) % $n]) ? 1 : 0);
+                        + (($pairs[$prev] !== $pairs[$curr]) ? 1 : 0);
                 }
 
                 $rank = $newRank;

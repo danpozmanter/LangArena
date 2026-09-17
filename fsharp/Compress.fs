@@ -79,38 +79,28 @@ type BWTEncode =
                 let mutable k = 1
 
                 while k < n do
-
-                    let saCopy = Array.copy sa
+                    let pairs = Array.init n (fun i -> (rank.[i], rank.[(i + k) % n]))
 
                     System.Array.Sort(
                         sa,
                         { new System.Collections.Generic.IComparer<int> with
                             member _.Compare(a, b) =
-                                let ra = rank.[a]
-                                let rb = rank.[b]
+                                let pa = pairs.[a]
+                                let pb = pairs.[b]
 
-                                if ra <> rb then
-                                    compare ra rb
+                                if fst pa <> fst pb then
+                                    compare (fst pa) (fst pb)
                                 else
-                                    compare rank.[(a + k) % n] rank.[(b + k) % n] }
+                                    compare (snd pa) (snd pb) }
                     )
 
                     let newRank = Array.zeroCreate<int> n
                     newRank.[sa.[0]] <- 0
 
                     for i = 1 to n - 1 do
-                        let prevIdx = sa.[i - 1]
-                        let currIdx = sa.[i]
-
-                        newRank.[currIdx] <-
-                            newRank.[prevIdx]
-                            + (if
-                                   rank.[prevIdx] <> rank.[currIdx]
-                                   || rank.[(prevIdx + k) % n] <> rank.[(currIdx + k) % n]
-                               then
-                                   1
-                               else
-                                   0)
+                        let prevPair = pairs.[sa.[i - 1]]
+                        let currPair = pairs.[sa.[i]]
+                        newRank.[sa.[i]] <- newRank.[sa.[i - 1]] + (if prevPair <> currPair then 1 else 0)
 
                     System.Array.Copy(newRank, rank, n)
                     k <- k * 2

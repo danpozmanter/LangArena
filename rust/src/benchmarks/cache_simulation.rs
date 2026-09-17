@@ -11,7 +11,12 @@ struct Node {
 
 impl Node {
     fn new(key: String, value: String) -> Self {
-        Node { key, value, prev: None, next: None }
+        Node {
+            key,
+            value,
+            prev: None,
+            next: None,
+        }
     }
 }
 
@@ -83,8 +88,12 @@ impl LruCache {
         let prev = self.nodes[node].prev;
         let next = self.nodes[node].next;
 
-        if let Some(p) = prev { self.nodes[p].next = next; }
-        if let Some(n) = next { self.nodes[n].prev = prev; }
+        if let Some(p) = prev {
+            self.nodes[p].next = next;
+        }
+        if let Some(n) = next {
+            self.nodes[n].prev = prev;
+        }
 
         if Some(node) == self.tail {
             self.tail = prev;
@@ -93,7 +102,9 @@ impl LruCache {
         self.nodes[node].prev = None;
         self.nodes[node].next = self.head;
 
-        if let Some(h) = self.head { self.nodes[h].prev = Some(node); }
+        if let Some(h) = self.head {
+            self.nodes[h].prev = Some(node);
+        }
 
         self.head = Some(node);
 
@@ -105,7 +116,9 @@ impl LruCache {
     fn add_to_front(&mut self, node: usize) {
         self.nodes[node].next = self.head;
 
-        if let Some(h) = self.head { self.nodes[h].prev = Some(node); }
+        if let Some(h) = self.head {
+            self.nodes[h].prev = Some(node);
+        }
 
         self.head = Some(node);
 
@@ -119,7 +132,9 @@ impl LruCache {
             self.cache.remove(&self.nodes[tail_node].key);
 
             let prev = self.nodes[tail_node].prev;
-            if let Some(p) = prev { self.nodes[p].next = None; }
+            if let Some(p) = prev {
+                self.nodes[p].next = None;
+            }
 
             self.tail = prev;
 

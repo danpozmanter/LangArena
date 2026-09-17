@@ -3210,8 +3210,9 @@ class BWTEncode(Benchmark):
 
             k = 1
             while k < n:
+                pairs = [(rank[i], rank[(i + k) % n]) for i in range(n)]
 
-                sa.sort(key=lambda i: (rank[i], rank[(i + k) % n]))
+                sa.sort(key=lambda i: pairs[i])
 
                 new_rank = [0] * n
                 new_rank[sa[0]] = 0
@@ -3219,9 +3220,7 @@ class BWTEncode(Benchmark):
                     prev_idx = sa[i - 1]
                     curr_idx = sa[i]
                     new_rank[curr_idx] = new_rank[prev_idx] + (
-                        1 if rank[prev_idx] != rank[curr_idx] or
-                        rank[(prev_idx + k) % n] != rank[(curr_idx + k) % n]
-                        else 0)
+                        0 if pairs[prev_idx] == pairs[curr_idx] else 1)
 
                 rank = new_rank
                 k *= 2

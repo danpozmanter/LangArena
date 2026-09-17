@@ -29,28 +29,25 @@ bwt_transform :: proc(input: []u8) -> BWTResult {
 
 	sa := make([]int, n)
 	defer delete(sa)
+
+	counts: [256]int
 	for i in 0 ..< n {
-		sa[i] = i
+		counts[input[i]] += 1
 	}
 
-	buckets := make([][dynamic]int, 256)
-	defer {
-		for &b in buckets {
-			delete(b)
-		}
-		delete(buckets)
+	positions: [256]int
+	total := 0
+	for i in 0 ..< 256 {
+		positions[i] = total
+		total += counts[i]
 	}
 
-	for idx in sa {
-		append(&buckets[input[idx]], idx)
-	}
-
-	pos := 0
-	for &b in buckets {
-		for idx in b {
-			sa[pos] = idx
-			pos += 1
-		}
+	temp_counts: [256]int
+	for i in 0 ..< n {
+		byte_val := input[i]
+		pos := positions[byte_val] + temp_counts[byte_val]
+		sa[pos] = i
+		temp_counts[byte_val] += 1
 	}
 
 	if n > 1 {
@@ -70,54 +67,70 @@ bwt_transform :: proc(input: []u8) -> BWTResult {
 			rank[idx] = current_rank
 		}
 
+		Pair :: struct {
+			first:  int,
+			second: int,
+		}
+
+		temp_buffer := make([]int, n)
+		defer delete(temp_buffer)
+
 		k := 1
 		for k < n {
-			sortable := make([]struct {
-					index, rank1, rank2: int,
-				}, n)
-			defer delete(sortable)
+			pairs := make([]Pair, n)
+			defer delete(pairs)
 
 			for i in 0 ..< n {
-				suffix_idx := sa[i]
-				sortable[i].index = suffix_idx
-				sortable[i].rank1 = rank[suffix_idx]
-				sortable[i].rank2 = rank[(suffix_idx + k) % n]
+				pairs[i] = Pair{rank[i], rank[(i + k) % n]}
 			}
 
-			sort.quick_sort_proc(sortable, proc(a, b: struct {
-					index, rank1, rank2: int,
-				}) -> int {
-				if a.rank1 < b.rank1 {return -1}
-				if a.rank1 > b.rank1 {return 1}
-				if a.rank2 < b.rank2 {return -1}
-				if a.rank2 > b.rank2 {return 1}
-				return 0
-			})
+			count := make([]int, n + 1)
+			defer delete(count)
 
-			for item, i in sortable {
-				sa[i] = item.index
+			for i in 0 ..< n {
+				count[pairs[sa[i]].second] += 1
+			}
+			for i in 1 ..= n {
+				count[i] += count[i - 1]
+			}
+			copy(temp_buffer, sa)
+			for i := n - 1; i >= 0; i -= 1 {
+				key := pairs[temp_buffer[i]].second
+				count[key] -= 1
+				sa[count[key]] = temp_buffer[i]
+			}
+
+			for i in 0 ..= n {
+				count[i] = 0
+			}
+
+			for i in 0 ..< n {
+				count[pairs[sa[i]].first] += 1
+			}
+			for i in 1 ..= n {
+				count[i] += count[i - 1]
+			}
+			copy(temp_buffer, sa)
+			for i := n - 1; i >= 0; i -= 1 {
+				key := pairs[temp_buffer[i]].first
+				count[key] -= 1
+				sa[count[key]] = temp_buffer[i]
 			}
 
 			new_rank := make([]int, n)
 			defer delete(new_rank)
 
 			new_rank[sa[0]] = 0
-			for i := 1; i < n; i += 1 {
-				prev_idx := sa[i - 1]
-				curr_idx := sa[i]
-
-				prev_rank1 := rank[prev_idx]
-				prev_rank2 := rank[(prev_idx + k) % n]
-				curr_rank1 := rank[curr_idx]
-				curr_rank2 := rank[(curr_idx + k) % n]
-
-				new_rank[curr_idx] = new_rank[prev_idx]
-				if prev_rank1 != curr_rank1 || prev_rank2 != curr_rank2 {
-					new_rank[curr_idx] += 1
-				}
+			for i in 1 ..< n {
+				prev := sa[i - 1]
+				curr := sa[i]
+				same :=
+					pairs[prev].first == pairs[curr].first &&
+					pairs[prev].second == pairs[curr].second
+				new_rank[curr] = new_rank[prev] + (same ? 0 : 1)
 			}
 
-			copy(rank[:], new_rank[:])
+			copy(rank, new_rank)
 			k *= 2
 		}
 	}
