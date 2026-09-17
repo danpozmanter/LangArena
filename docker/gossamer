@@ -1,20 +1,14 @@
-FROM langarena:base_clang
+FROM langarena:rust
 
 ARG version
-ARG rust_version=1.98.0
 
-# `gos build --release` links a self-contained static-musl executable. The
-# link resolves the musl CRT and libc from rustup's self-contained target
-# directory, so the musl target has to be installed; the LLVM tools the
-# native backend drives (opt, llc, clang, ld.lld) come from base_clang.
-RUN wget https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init \
-    && chmod +x rustup-init \
-    && ./rustup-init -y \
-        --default-toolchain ${rust_version} \
-        --profile minimal \
-        --target x86_64-unknown-linux-musl \
-    && rm rustup-init
-ENV PATH="/root/.cargo/bin:${PATH}"
+# `gos build --release` links a self-contained static-musl executable, whose
+# CRT and libc come from rustup's self-contained musl target directory. The
+# LLVM tools the native backend drives (opt, llc) and the linker (rust-lld)
+# ship with the Rust toolchain's llvm-tools component.
+RUN rustup target add x86_64-unknown-linux-musl \
+    && ln -s $(rustc --print sysroot)/lib/rustlib/$(rustc -vV | grep host | cut -d" " -f2)/bin/opt /usr/local/bin/opt \
+    && ln -s $(rustc --print sysroot)/lib/rustlib/$(rustc -vV | grep host | cut -d" " -f2)/bin/llc /usr/local/bin/llc
 
 # `gos` resolves its runtime archives relative to itself, as <bin>/../lib.
 RUN wget --progress=dot:giga -O - \

@@ -597,7 +597,7 @@ services:
       - ./cache/build/gossamer/target:/src/gossamer/target
       - ./cache/build/gossamer/gos-cache:/src/gossamer/.gos-cache
     depends_on:
-      - base_clang
+      - rust
 
   julia:
     <<: *shared
