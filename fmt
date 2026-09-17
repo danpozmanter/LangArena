@@ -26,14 +26,23 @@ LANG_MASKS = {
   'mojo' => ['./mojo', ['.mojo'], ['target', '.venv', '.pixi'], 'pixi run mojo format $@'],
   'php' => ['./php', ['.php'], [], 'pretty-php $@'],
   'gossamer' => ['./gossamer', ['.gos'], ['target', '.gos-cache'], 'gos fmt $@']
+  'javascript' => ['./javascript', ['.js'], [], 'npx oxfmt $@ < /dev/null'],
 }
 
 def remove_comments(filepath, lang)
   content = File.read(filepath, encoding: 'utf-8')
   
   case lang
-  when 'c', 'cpp', 'golang', 'rust', 'csharp', 'swift', 'java', 'kotlin', 'd', 'v', 'fsharp', 'dart', 'zig', 'odin', 'scala', 'c3', 'php', 'gossamer'
+
+  when 'c', 'cpp', 'golang', 'rust', 'csharp', 'swift', 'java', 'kotlin', 'd', 'v', 
+    'fsharp', 'dart', 'zig', 'odin', 'scala', 'c3', 'php', 'gossamer', 'javascript', 'typescript'
+
     lines = content.lines.map do |line|
+      if (line =~ %r{//\s*@ts-ignore}) || (line =~ %r{/[^/\n]*\\/[^/\n]*/})
+        puts "skipping like #{line.inspect}"
+        next line.rstrip 
+      end
+      
       in_string = false
       string_char = nil
       in_char = false
@@ -69,16 +78,11 @@ def remove_comments(filepath, lang)
     end
     
     content = lines.join("\n")
-    content.gsub!(/\/\*[\s\S]*?\*\//m, '')
-    
-  when 'typescript'
-    content.gsub!(/\/\*[\s\S]*?\*\//m, '')
-    content.gsub!(/^(\s*)\/\/\s*@ts-ignore.*$/) { |m| m }
-    content.gsub!(/^(\s*)\/\/[^\n]*$/) do |match|
-      if match.include?('@ts-ignore') || match.match?(/\/[gimsuy]+[,\]\)\}]?$/)
-        match
+    content.gsub!(/\/\*[\s\S]*?\*\//m) do |substr|
+      if substr.include?("//gi]],") || substr.include?("@ts-ignore") 
+        substr
       else
-        ''
+        ""
       end
     end
           
@@ -132,6 +136,7 @@ def remove_comments(filepath, lang)
   
   File.write(filepath, content, encoding: 'utf-8')
 end
+
 def get_files(lang)
   dir, exts, excludes, _ = LANG_MASKS[lang]
   
