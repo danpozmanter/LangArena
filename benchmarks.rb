@@ -72,6 +72,7 @@ LANG_MASKS = {
   'scala' => ['./scala', ['.scala'], ['target', 'project']],
   'php' => ['./php', ['.php'], []],
   'mojo' => ['./mojo', ['.mojo'], ['.pixi', 'target']],
+  'javascript' => ['./javascript', ['.js'], []],
 }
 
 def check_source_files(verbose = false)
@@ -2410,6 +2411,49 @@ RUNS = [
     dir: "/src/php",
     container: "php",
     group: :hack, 
+    deps_cmd: "true",
+  ),
+
+  # ======================================= JavaScript ======================================================
+
+  Run.new(
+    name: "JS/Node/Default",
+    build_cmd: "true",
+    binary_name: "/src/javascript/index.js",
+    run_cmd: "node /src/javascript/index.js",
+    version_cmd: "node --version",
+    dir: "/src/javascript",
+    container: "typescript",
+    group: :hack,
+    deps_cmd: "true",
+  ),
+
+  Run.new(
+    name: "JS/Bun/JIT",
+    build_cmd: "true",
+    binary_name: "/src/javascript/index.js",
+    run_cmd: "bun run /src/javascript/index.js",
+    version_cmd: "bun --version",
+    dir: "/src/javascript",
+    container: "typescript-bun",
+    group: :hack,
+    deps_cmd: "true",
+  ),
+
+  Run.new(
+    name: "JS/Deno/Default",
+    build_cmd: "true",
+    binary_name: "/src/javascript/index.js",
+    run_cmd: <<~CMD.chomp,
+      deno run \
+        --allow-all \
+        --v8-flags=--max-old-space-size=4096 \
+        /src/javascript/index.js
+    CMD
+    version_cmd: "deno --version",
+    dir: "/src/javascript",
+    container: "typescript-deno",
+    group: :hack,
     deps_cmd: "true",
   ),
   
