@@ -5,6 +5,12 @@ use helper
 
 const ALPHABET: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
+struct Point {
+    x: f64
+    y: f64
+    z: f64
+}
+
 pub struct CsvParse {
     rows: i64
     data: String
@@ -20,6 +26,21 @@ impl CsvParse {
             result: 0
             rng: helper::Rng::new()
         }
+    }
+
+    fn parse_points(&self) -> Vec<Point> {
+        let records = csv::read(self.data).unwrap_or(#[])
+        let mut points = Vec::with_capacity(records.len())
+
+        for record in records {
+            points.push(Point {
+                x: record[1].to_f64().unwrap_or(0.0)
+                y: record[5].to_f64().unwrap_or(0.0)
+                z: record[3].to_f64().unwrap_or(0.0)
+            })
+        }
+
+        points
     }
 }
 
@@ -46,20 +67,20 @@ impl Bench for CsvParse {
     }
 
     fn run(&mut self, iteration_id: i64) {
-        let records = csv::read(self.data).unwrap_or(#[])
-        if records.is_empty() { return }
+        let points = self.parse_points()
+        if points.is_empty() { return }
 
         let mut x_sum = 0.0
         let mut y_sum = 0.0
         let mut z_sum = 0.0
 
-        for record in records {
-            x_sum += record[1].to_f64().unwrap_or(0.0)
-            z_sum += record[3].to_f64().unwrap_or(0.0)
-            y_sum += record[5].to_f64().unwrap_or(0.0)
+        for point in points {
+            x_sum += point.x
+            y_sum += point.y
+            z_sum += point.z
         }
 
-        let count = records.len() as f64
+        let count = points.len() as f64
         self.result = (self.result + helper::checksum_f64(x_sum / count) +
             helper::checksum_f64(y_sum / count) +
             helper::checksum_f64(z_sum / count)) & helper::MASK32

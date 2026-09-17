@@ -11,6 +11,29 @@ struct Cell {
     neighbors: Vec<(i64, i64)>
 }
 
+impl Cell {
+    fn new(alive: bool) -> Cell {
+        Cell { alive: alive, next_state: false, neighbors: Vec::with_capacity(8) }
+    }
+
+    fn add_neighbor(&mut self, x: i64, y: i64) { self.neighbors.push((x, y)) }
+
+    fn compute_next_state(&self, cells: [Vec<Cell>]) -> bool {
+        let mut alive_neighbors = 0
+        for (x, y) in self.neighbors {
+            if cells[y][x].alive { alive_neighbors += 1 }
+        }
+
+        if self.alive {
+            alive_neighbors == 2 || alive_neighbors == 3
+        } else {
+            alive_neighbors == 3
+        }
+    }
+
+    fn update(&mut self) { self.alive = self.next_state }
+}
+
 struct Grid {
     width: i64
     height: i64
@@ -23,7 +46,7 @@ impl Grid {
         for _ in 0..height {
             let mut row: Vec<Cell> = #[]
             for _ in 0..width {
-                row.push(Cell { alive: false, next_state: false, neighbors: #[] })
+                row.push(Cell::new(false))
             }
             cells.push(row)
         }
@@ -41,7 +64,7 @@ impl Grid {
                         if dx == 0 && dy == 0 { continue }
                         let ny = (y + dy + self.height) % self.height
                         let nx = (x + dx + self.width) % self.width
-                        self.cells[y][x].neighbors.push((nx, ny))
+                        self.cells[y][x].add_neighbor(nx, ny)
                     }
                 }
             }
@@ -51,22 +74,14 @@ impl Grid {
     fn next_generation(&mut self) {
         for y in 0..self.height {
             for x in 0..self.width {
-                let mut alive_neighbors = 0
-                for (nx, ny) in self.cells[y][x].neighbors {
-                    if self.cells[ny][nx].alive { alive_neighbors += 1 }
-                }
-
-                self.cells[y][x].next_state = if self.cells[y][x].alive {
-                    alive_neighbors == 2 || alive_neighbors == 3
-                } else {
-                    alive_neighbors == 3
-                }
+                let next_state = self.cells[y][x].compute_next_state(self.cells)
+                self.cells[y][x].next_state = next_state
             }
         }
 
         for y in 0..self.height {
             for x in 0..self.width {
-                self.cells[y][x].alive = self.cells[y][x].next_state
+                self.cells[y][x].update()
             }
         }
     }
