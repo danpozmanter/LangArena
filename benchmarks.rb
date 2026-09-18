@@ -72,6 +72,7 @@ LANG_MASKS = {
   'scala' => ['./scala', ['.scala'], ['target', 'project']],
   'php' => ['./php', ['.php'], []],
   'mojo' => ['./mojo', ['.mojo'], ['.pixi', 'target']],
+  'gossamer' => ['./gossamer', ['.gos'], ['target', '.gos-cache']],
   'javascript' => ['./javascript', ['.js'], []],
 }
 
@@ -884,6 +885,20 @@ RUNS = [
   #   group: :hack,
   #   deps_cmd: "dub fetch",
   # ),
+
+  # ======================================= Gossamer ======================================================
+
+  Run.new(
+    name: "Gossamer",
+    build_cmd: "gos build --release",
+    binary_name: "./target/release/gossamer",
+    run_cmd: "./target/release/gossamer",
+    version_cmd: "gos --version",
+    dir: "/src/gossamer",
+    container: "gossamer",
+    group: :prod,
+    deps_cmd: "true",
+  ),
 
   # ======================================= V ======================================================
 
