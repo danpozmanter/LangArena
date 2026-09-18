@@ -87,17 +87,17 @@ struct BWTEncode(Benchmark, Movable):
 
             var k = 1
             while k < n:
-                var rank2 = List[Int](length=n, fill=0)
+                var pairs = List[Tuple[Int, Int]](length=n, fill=(0, 0))
                 for i in range(n):
-                    rank2[i] = rank[(i + k) % n]
+                    pairs[i] = (rank[i], rank[(i + k) % n])
 
                 sort(
                     Span(sa),
                     lambda (a: Int, b: Int) -> Bool: (
-                        rank[a]
-                        < rank[b] if rank[a]
-                        != rank[b] else rank2[a]
-                        < rank2[b]
+                        pairs[a][0]
+                        < pairs[b][0] if pairs[a][0]
+                        != pairs[b][0] else pairs[a][1]
+                        < pairs[b][1]
                     ),
                 )
 
@@ -106,7 +106,7 @@ struct BWTEncode(Benchmark, Movable):
                 for i in range(1, n):
                     var prev = sa[i - 1]
                     var curr = sa[i]
-                    if rank[prev] != rank[curr] or rank2[prev] != rank2[curr]:
+                    if pairs[prev] != pairs[curr]:
                         new_rank[curr] = new_rank[prev] + 1
                     else:
                         new_rank[curr] = new_rank[prev]

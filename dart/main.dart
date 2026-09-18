@@ -3492,6 +3492,13 @@ class BWTResult {
   BWTResult(this.transformed, this.originalIdx);
 }
 
+class BWTPair {
+  final int first;
+  final int second;
+
+  BWTPair(this.first, this.second);
+}
+
 class BWTEncode extends Benchmark {
   BWTResult bwtTransform(Uint8List input) {
     int n = input.length;
@@ -3535,25 +3542,24 @@ class BWTEncode extends Benchmark {
 
       int k = 1;
       while (k < n) {
+        List<BWTPair> pairs =
+            List.generate(n, (i) => BWTPair(rank[i], rank[(i + k) % n]));
+
         sa.sort((a, b) {
-          int ra = rank[a];
-          int rb = rank[b];
-          if (ra != rb) return ra - rb;
-          int rak = rank[(a + k) % n];
-          int rbk = rank[(b + k) % n];
-          return rak - rbk;
+          var pa = pairs[a];
+          var pb = pairs[b];
+          if (pa.first != pb.first) return pa.first - pb.first;
+          return pa.second - pb.second;
         });
 
         List<int> newRank = List<int>.filled(n, 0);
         newRank[sa[0]] = 0;
         for (int i = 1; i < n; i++) {
-          int prevIdx = sa[i - 1];
-          int currIdx = sa[i];
-          newRank[currIdx] = newRank[prevIdx] +
-              ((rank[prevIdx] != rank[currIdx] ||
-                      rank[(prevIdx + k) % n] != rank[(currIdx + k) % n])
-                  ? 1
-                  : 0);
+          var prevPair = pairs[sa[i - 1]];
+          var currPair = pairs[sa[i]];
+          bool same = prevPair.first == currPair.first &&
+              prevPair.second == currPair.second;
+          newRank[sa[i]] = newRank[sa[i - 1]] + (same ? 0 : 1);
         }
 
         rank = newRank;

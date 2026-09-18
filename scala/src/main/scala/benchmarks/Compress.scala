@@ -97,15 +97,13 @@ class BWTEncode extends Benchmark {
 
       var k = 1
       while (k < n) {
+        val pairs = Array.tabulate(n)(i => Pair(rank(i), rank((i + k) % n)))
+
         sa.sortInPlaceWith { (a, b) =>
-          val ra = rank(a)
-          val rb = rank(b)
-          if (ra != rb) ra < rb
-          else {
-            val rak = rank((a + k) % n)
-            val rbk = rank((b + k) % n)
-            rak < rbk
-          }
+          val pa = pairs(a)
+          val pb = pairs(b)
+          if (pa.first != pb.first) pa.first < pb.first
+          else pa.second < pb.second
         }
 
         val newRank = new Array[Int](n)
@@ -114,13 +112,7 @@ class BWTEncode extends Benchmark {
         while (i < n) {
           val prevIdx = sa(i - 1)
           val currIdx = sa(i)
-          newRank(currIdx) = newRank(prevIdx) + (
-            if (
-              rank(prevIdx) != rank(currIdx) ||
-              rank((prevIdx + k) % n) != rank((currIdx + k) % n)
-            ) 1
-            else 0
-          )
+          newRank(currIdx) = newRank(prevIdx) + (if (pairs(prevIdx) != pairs(currIdx)) 1 else 0)
           i += 1
         }
         System.arraycopy(newRank, 0, rank, 0, n)
@@ -145,6 +137,8 @@ class BWTEncode extends Benchmark {
 
     new BWTResult(transformed, originalIdx)
   }
+
+  private case class Pair(first: Int, second: Int)
 }
 
 class BWTDecode extends Benchmark {

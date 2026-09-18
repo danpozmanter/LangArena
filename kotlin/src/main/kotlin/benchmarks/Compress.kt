@@ -83,15 +83,16 @@ class BWTEncode : Benchmark() {
 
             var k = 1
             while (k < n) {
-                val saArray = Array(n) { sa[it] }
+                val pairs = Array(n) { Pair(rank[it], rank[(it + k) % n]) }
 
+                val saArray = Array(n) { sa[it] }
                 saArray.sortWith { a, b ->
-                    val ra = rank[a]
-                    val rb = rank[b]
-                    if (ra != rb) {
-                        ra.compareTo(rb)
+                    val pa = pairs[a]
+                    val pb = pairs[b]
+                    if (pa.first != pb.first) {
+                        pa.first.compareTo(pb.first)
                     } else {
-                        rank[(a + k) % n].compareTo(rank[(b + k) % n])
+                        pa.second.compareTo(pb.second)
                     }
                 }
 
@@ -102,16 +103,10 @@ class BWTEncode : Benchmark() {
                 val newRank = IntArray(n)
                 newRank[sa[0]] = 0
                 for (i in 1 until n) {
-                    val prevIdx = sa[i - 1]
-                    val currIdx = sa[i]
-                    newRank[currIdx] = newRank[prevIdx] +
-                        if (rank[prevIdx] != rank[currIdx] ||
-                            rank[(prevIdx + k) % n] != rank[(currIdx + k) % n]
-                        ) {
-                            1
-                        } else {
-                            0
-                        }
+                    val prevPair = pairs[sa[i - 1]]
+                    val currPair = pairs[sa[i]]
+                    val same = prevPair.first == currPair.first && prevPair.second == currPair.second
+                    newRank[sa[i]] = newRank[sa[i - 1]] + if (same) 0 else 1
                 }
 
                 newRank.copyInto(rank)
@@ -134,6 +129,11 @@ class BWTEncode : Benchmark() {
 
         return BWTResult(transformed, originalIdx)
     }
+
+    private data class Pair(
+        val first: Int,
+        val second: Int,
+    )
 }
 
 class BWTDecode : Benchmark() {

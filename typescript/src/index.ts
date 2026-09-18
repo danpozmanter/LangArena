@@ -4001,25 +4001,27 @@ export class BWTEncode extends Benchmark {
 
       let k = 1;
       while (k < n) {
+        const pairs = new Array(n);
+        for (let i = 0; i < n; i++) {
+          pairs[i] = [rank[i], rank[(i + k) % n]];
+        }
+
         const saArray = Array.from(sa);
         saArray.sort((a, b) => {
-          const ra = rank[a];
-          const rb = rank[b];
-          if (ra !== rb) return ra - rb;
-          return rank[(a + k) % n] - rank[(b + k) % n];
+          const pa = pairs[a];
+          const pb = pairs[b];
+          if (pa[0] !== pb[0]) return pa[0] - pb[0];
+          return pa[1] - pb[1];
         });
         for (let i = 0; i < n; i++) sa[i] = saArray[i];
 
         const newRank = new Int32Array(n);
         newRank[sa[0]] = 0;
         for (let i = 1; i < n; i++) {
-          const prevIdx = sa[i - 1];
-          const currIdx = sa[i];
-          newRank[currIdx] =
-            newRank[prevIdx] +
-            (rank[prevIdx] !== rank[currIdx] || rank[(prevIdx + k) % n] !== rank[(currIdx + k) % n]
-              ? 1
-              : 0);
+          const prevPair = pairs[sa[i - 1]];
+          const currPair = pairs[sa[i]];
+          const same = prevPair[0] === currPair[0] && prevPair[1] === currPair[1];
+          newRank[sa[i]] = newRank[sa[i - 1]] + (same ? 0 : 1);
         }
 
         for (let i = 0; i < n; i++) rank[i] = newRank[i];
