@@ -16,7 +16,7 @@ pub enum CellKind {
 impl CellKind {
     fn is_walkable(&self) -> bool { matches(self, CellKind::Space | CellKind::Start | CellKind::Finish) }
 
-    fn value(&self) -> i64 {
+    fn value(&self) -> u32 {
         match self {
             CellKind::Wall => 0
             CellKind::Space => 1
@@ -154,15 +154,15 @@ impl Maze {
 
     pub fn middle_cell(&self) -> Cell { self.cells[self.height / 2][self.width / 2] }
 
-    pub fn checksum(&self) -> i64 {
-        let mut hasher: i64 = 2166136261
-        let prime: i64 = 16777619
+    pub fn checksum(&self) -> u32 {
+        let mut hasher: u32 = 2_166_136_261
+        let prime: u32 = 16_777_619
 
         for row in self.cells {
             for cell in row {
                 if cell.kind == CellKind::Space {
-                    let val = (cell.x * cell.y) & helper::MASK32
-                    hasher = ((hasher ^ val) * prime) & helper::MASK32
+                    let val = (cell.x * cell.y) as u32
+                    hasher = (hasher ^ val) *% prime
                 }
             }
         }
@@ -182,7 +182,7 @@ impl Maze {
 
 pub struct MazeGenerator {
     maze: Maze
-    result: i64
+    result: u32
 }
 
 impl MazeGenerator {
@@ -201,16 +201,16 @@ impl Bench for MazeGenerator {
     fn run(&mut self, iteration_id: i64) {
         self.maze.reset()
         self.maze.generate()
-        self.result = (self.result + self.maze.middle_cell().kind.value()) & helper::MASK32
+        self.result +%= self.maze.middle_cell().kind.value()
     }
 
-    fn checksum(&self) -> i64 { (self.result + self.maze.checksum()) & helper::MASK32 }
+    fn checksum(&self) -> u32 { self.result +% self.maze.checksum() }
 }
 
 pub struct MazeBfs {
     maze: Maze
     path: Vec<(i64, i64)>
-    result: i64
+    result: u32
 }
 
 impl MazeBfs {
@@ -269,26 +269,26 @@ impl Bench for MazeBfs {
 
     fn run(&mut self, iteration_id: i64) {
         self.path = self.bfs(self.maze.get_start(), self.maze.get_finish())
-        self.result = (self.result + self.path.len()) & helper::MASK32
+        self.result +%= self.path.len() as u32
     }
 
-    fn checksum(&self) -> i64 {
+    fn checksum(&self) -> u32 {
         let mid_cell_value = if !self.path.is_empty() {
             let mid_index = self.path.len() / 2
             let y, x = self.path[mid_index]
-            (x * y) & helper::MASK32
+            (x * y) as u32
         } else {
             0
         }
 
-        (self.result + mid_cell_value) & helper::MASK32
+        self.result +% mid_cell_value
     }
 }
 
 pub struct MazeAStar {
     maze: Maze
     path: Vec<(i64, i64)>
-    result: i64
+    result: u32
 }
 
 impl MazeAStar {
@@ -371,18 +371,18 @@ impl Bench for MazeAStar {
 
     fn run(&mut self, iteration_id: i64) {
         self.path = self.astar(self.maze.get_start(), self.maze.get_finish())
-        self.result = (self.result + self.path.len()) & helper::MASK32
+        self.result +%= self.path.len() as u32
     }
 
-    fn checksum(&self) -> i64 {
+    fn checksum(&self) -> u32 {
         let mid_cell_value = if !self.path.is_empty() {
             let mid_index = self.path.len() / 2
             let y, x = self.path[mid_index]
-            (x * y) & helper::MASK32
+            (x * y) as u32
         } else {
             0
         }
 
-        (self.result + mid_cell_value) & helper::MASK32
+        self.result +% mid_cell_value
     }
 }

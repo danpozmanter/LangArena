@@ -166,11 +166,11 @@ impl Bench for CacheSimulation {
         }
     }
 
-    fn checksum(&self) -> i64 {
-        let mut result: i64 = 5432
-        result = ((result << 5) + self.hits) & helper::MASK32
-        result = ((result << 5) + self.misses) & helper::MASK32
-        result = ((result << 5) + self.cache.len()) & helper::MASK32
+    fn checksum(&self) -> u32 {
+        let mut result: u32 = 5432
+        result = (result << 5) +% self.hits as u32
+        result = (result << 5) +% self.misses as u32
+        result = (result << 5) +% self.cache.len() as u32
         result
     }
 }

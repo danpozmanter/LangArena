@@ -5,7 +5,7 @@ use helper
 
 pub struct Fannkuchredux {
     n: i64
-    result: i64
+    result: u32
 }
 
 impl Fannkuchredux {
@@ -64,11 +64,10 @@ impl Fannkuchredux {
 impl Bench for Fannkuchredux {
     fn run(&mut self, iteration_id: i64) {
         let checksum, max_flips = self.fannkuch(self.n)
-        let contribution = ((checksum & helper::MASK32) * 100 + max_flips) & helper::MASK32
-        self.result = (self.result + contribution) & helper::MASK32
+        self.result +%= checksum as u32 *% 100 +% max_flips as u32
     }
 
-    fn checksum(&self) -> i64 { self.result }
+    fn checksum(&self) -> u32 { self.result }
 }
 
 const MANDELBROT_ITER: i64 = 50
@@ -137,7 +136,7 @@ impl Bench for Mandelbrot {
         }
     }
 
-    fn checksum(&self) -> i64 { helper::checksum_bytes(self.bitmap) }
+    fn checksum(&self) -> u32 { helper::checksum_bytes(self.bitmap) }
 }
 
 const SOLAR_MASS: f64 = 4.0 * 3.141592653589793 * 3.141592653589793
@@ -300,9 +299,9 @@ impl Bench for Nbody {
         }
     }
 
-    fn checksum(&self) -> i64 {
+    fn checksum(&self) -> u32 {
         let v2 = energy(self.bodies)
-        ((helper::checksum_f64(self.v1) << 5) & helper::MASK32) & helper::checksum_f64(v2)
+        (helper::checksum_f64(self.v1) << 5) & helper::checksum_f64(v2)
     }
 }
 
@@ -356,7 +355,7 @@ impl Bench for Spectralnorm {
         self.u = self.eval_ata_times_u(self.v)
     }
 
-    fn checksum(&self) -> i64 {
+    fn checksum(&self) -> u32 {
         let mut vbv = 0.0
         let mut vv = 0.0
         for i in 0..self.size {

@@ -74,7 +74,7 @@ struct Matmul {
     n: i64
     a: Vec<Vec<f64>>
     b: Vec<Vec<f64>>
-    result: i64
+    result: u32
 }
 
 impl Matmul {
@@ -85,7 +85,7 @@ impl Matmul {
 
     fn accumulate(&mut self, c: Vec<Vec<f64>>) {
         let mid = self.n >> 1
-        self.result = (self.result + helper::checksum_f64(c[mid][mid])) & helper::MASK32
+        self.result +%= helper::checksum_f64(c[mid][mid])
     }
 }
 
@@ -103,7 +103,7 @@ impl Bench for MatmulSingle {
         self.inner.accumulate(c)
     }
 
-    fn checksum(&self) -> i64 { self.inner.result }
+    fn checksum(&self) -> u32 { self.inner.result }
 }
 
 pub struct MatmulT4 { inner: Matmul }
@@ -120,7 +120,7 @@ impl Bench for MatmulT4 {
         self.inner.accumulate(c)
     }
 
-    fn checksum(&self) -> i64 { self.inner.result }
+    fn checksum(&self) -> u32 { self.inner.result }
 }
 
 pub struct MatmulT8 { inner: Matmul }
@@ -137,7 +137,7 @@ impl Bench for MatmulT8 {
         self.inner.accumulate(c)
     }
 
-    fn checksum(&self) -> i64 { self.inner.result }
+    fn checksum(&self) -> u32 { self.inner.result }
 }
 
 pub struct MatmulT16 { inner: Matmul }
@@ -154,5 +154,5 @@ impl Bench for MatmulT16 {
         self.inner.accumulate(c)
     }
 
-    fn checksum(&self) -> i64 { self.inner.result }
+    fn checksum(&self) -> u32 { self.inner.result }
 }

@@ -23,7 +23,7 @@ pub struct JsonGenerate {
     n: i64
     text: String
     data: JsonData
-    result: i64
+    result: u32
     rng: helper::Rng
 }
 
@@ -69,13 +69,13 @@ impl Bench for JsonGenerate {
         if self.text.starts_with("{\"coordinates\":") { self.result += 1 }
     }
 
-    fn checksum(&self) -> i64 { self.result }
+    fn checksum(&self) -> u32 { self.result }
 }
 
 pub struct JsonParseDom {
     n: i64
     text: String
-    result: i64
+    result: u32
 }
 
 impl JsonParseDom {
@@ -112,11 +112,10 @@ impl Bench for JsonParseDom {
 
     fn run(&mut self, iteration_id: i64) {
         let x, y, z = self.calc(self.text)
-        self.result = (self.result + helper::checksum_f64(x) + helper::checksum_f64(y) +
-            helper::checksum_f64(z)) & helper::MASK32
+        self.result +%= helper::checksum_f64(x) +% helper::checksum_f64(y) +% helper::checksum_f64(z)
     }
 
-    fn checksum(&self) -> i64 { self.result }
+    fn checksum(&self) -> u32 { self.result }
 }
 
 struct CoordinateData {
@@ -132,7 +131,7 @@ struct Coordinates {
 pub struct JsonParseMapping {
     n: i64
     text: String
-    result: i64
+    result: u32
 }
 
 impl JsonParseMapping {
@@ -168,9 +167,9 @@ impl Bench for JsonParseMapping {
 
     fn run(&mut self, iteration_id: i64) {
         let avg = self.calc(self.text)
-        self.result = (self.result + helper::checksum_f64(avg.x) + helper::checksum_f64(avg.y) +
-            helper::checksum_f64(avg.z)) & helper::MASK32
+        self.result +%= helper::checksum_f64(avg.x) +% helper::checksum_f64(avg.y) +%
+            helper::checksum_f64(avg.z)
     }
 
-    fn checksum(&self) -> i64 { self.result }
+    fn checksum(&self) -> u32 { self.result }
 }

@@ -5,7 +5,7 @@ use helper
 struct SortData {
     size: i64
     data: Vec<i64>
-    result: i64
+    result: u32
     rng: helper::Rng
 }
 
@@ -20,7 +20,7 @@ impl SortData {
 
     fn sample(&mut self, from: Vec<i64>) {
         let index = self.rng.next_int(self.size)
-        self.result = (self.result + from[index]) & helper::MASK32
+        self.result +%= from[index] as u32
     }
 }
 
@@ -64,7 +64,7 @@ impl Bench for SortQuick {
         self.inner.sample(t)
     }
 
-    fn checksum(&self) -> i64 { self.inner.result }
+    fn checksum(&self) -> u32 { self.inner.result }
 }
 
 fn merge(arr: &mut Vec<i64>, temp: &mut Vec<i64>, left: i64, mid: i64, right: i64) {
@@ -120,7 +120,7 @@ impl Bench for SortMerge {
         self.inner.sample(t)
     }
 
-    fn checksum(&self) -> i64 { self.inner.result }
+    fn checksum(&self) -> u32 { self.inner.result }
 }
 
 pub struct SortSelf { inner: SortData }
@@ -142,5 +142,5 @@ impl Bench for SortSelf {
         self.inner.sample(t)
     }
 
-    fn checksum(&self) -> i64 { self.inner.result }
+    fn checksum(&self) -> u32 { self.inner.result }
 }

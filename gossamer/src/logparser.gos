@@ -1,7 +1,6 @@
 use std::regex
 use bench::Bench
 use config::Config
-use helper
 
 fn patterns() -> Vec<(String, String)> {
     #[
@@ -43,7 +42,7 @@ pub struct LogParser {
     patterns: Vec<(String, regex::Pattern)>
     ips: Vec<String>
     log: String
-    result: i64
+    result: u32
 }
 
 impl LogParser {
@@ -94,8 +93,8 @@ impl Bench for LogParser {
         for (name, pattern) in self.patterns { counts.insert(name, pattern.count(self.log)) }
 
         let total = counts.values().sum()
-        self.result = (self.result + total) & helper::MASK32
+        self.result +%= total as u32
     }
 
-    fn checksum(&self) -> i64 { self.result }
+    fn checksum(&self) -> u32 { self.result }
 }

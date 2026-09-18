@@ -26,7 +26,7 @@ pub struct Jaro {
     count: i64
     size: i64
     pairs: Vec<(String, String)>
-    result: i64
+    result: u32
     rng: helper::Rng
 }
 
@@ -99,18 +99,18 @@ impl Bench for Jaro {
 
     fn run(&mut self, iteration_id: i64) {
         for (s1, s2) in self.pairs {
-            self.result = (self.result + (Jaro::jaro(s1, s2) * 1000.0) as i64) & helper::MASK32
+            self.result +%= (Jaro::jaro(s1, s2) * 1000.0) as u32
         }
     }
 
-    fn checksum(&self) -> i64 { self.result }
+    fn checksum(&self) -> u32 { self.result }
 }
 
 pub struct NGram {
     count: i64
     size: i64
     pairs: Vec<(String, String)>
-    result: i64
+    result: u32
     n: i64
     rng: helper::Rng
 }
@@ -136,23 +136,24 @@ impl NGram {
 
         if len1 < self.n || len2 < self.n { return 0.0 }
 
-        let mut grams1: Map<i64, i64> = Map::with_capacity(len1)
+        let mut grams1: Map<u32, i32> = Map::with_capacity(len1)
 
         for i in 0..=len1 - self.n {
-            let gram = ((s1_bytes[i] as i64) << 24) | ((s1_bytes[i + 1] as i64) << 16) |
-            ((s1_bytes[i + 2] as i64) << 8) | (s1_bytes[i + 3] as i64)
+            let gram = ((s1_bytes[i] as u32) << 24) | ((s1_bytes[i + 1] as u32) << 16) |
+            ((s1_bytes[i + 2] as u32) << 8) | (s1_bytes[i + 3] as u32)
 
-            grams1.inc(gram)
+            grams1.insert(gram, grams1.get(gram).unwrap_or(0) + 1)
         }
 
-        let mut grams2: Map<i64, i64> = Map::with_capacity(len2)
+        let mut grams2: Map<u32, i32> = Map::with_capacity(len2)
         let mut intersection = 0
 
         for i in 0..=len2 - self.n {
-            let gram = ((s2_bytes[i] as i64) << 24) | ((s2_bytes[i + 1] as i64) << 16) |
-            ((s2_bytes[i + 2] as i64) << 8) | (s2_bytes[i + 3] as i64)
+            let gram = ((s2_bytes[i] as u32) << 24) | ((s2_bytes[i + 1] as u32) << 16) |
+            ((s2_bytes[i + 2] as u32) << 8) | (s2_bytes[i + 3] as u32)
 
-            let count2 = grams2.inc(gram)
+            let count2 = grams2.get(gram).unwrap_or(0) + 1
+            grams2.insert(gram, count2)
 
             if let Some(count1) = grams1.get(gram) {
                 if count2 <= count1 { intersection += 1 }
@@ -172,9 +173,9 @@ impl Bench for NGram {
 
     fn run(&mut self, iteration_id: i64) {
         for (s1, s2) in self.pairs {
-            self.result = (self.result + (self.ngram(s1, s2) * 1000.0) as i64) & helper::MASK32
+            self.result +%= (self.ngram(s1, s2) * 1000.0) as u32
         }
     }
 
-    fn checksum(&self) -> i64 { self.result }
+    fn checksum(&self) -> u32 { self.result }
 }

@@ -2,8 +2,8 @@ use bench::Bench
 use config::Config
 use helper
 
-const FNV_OFFSET: i64 = 2166136261
-const FNV_PRIME: i64 = 16777619
+const FNV_OFFSET: u32 = 2166136261
+const FNV_PRIME: u32 = 16777619
 
 struct Cell {
     alive: bool
@@ -112,18 +112,18 @@ impl Bench for GameOfLife {
 
     fn run(&mut self, iteration_id: i64) { self.grid.next_generation() }
 
-    fn checksum(&self) -> i64 {
-        let mut alive = 0
+    fn checksum(&self) -> u32 {
+        let mut alive: u32 = 0
         let mut hash = FNV_OFFSET
 
         for row in self.grid.cells {
             for cell in row {
                 if cell.alive { alive += 1 }
-                let bit = if cell.alive { 1 } else { 0 }
-                hash = ((hash ^ bit) * FNV_PRIME) & helper::MASK32
+                let bit: u32 = if cell.alive { 1 } else { 0 }
+                hash = (hash ^ bit) *% FNV_PRIME
             }
         }
 
-        (hash + alive) & helper::MASK32
+        hash +% alive
     }
 }

@@ -59,7 +59,7 @@ pub struct TemplateRegex {
     placeholder: regex::Pattern
     doc: Document
     rendered: String
-    result: i64
+    result: u32
 }
 
 impl TemplateRegex {
@@ -92,11 +92,11 @@ impl Bench for TemplateRegex {
         rendered.push_str(self.doc.text.substring(cursor, self.doc.text.byte_len()))
 
         self.rendered = rendered
-        self.result = (self.result + self.rendered.byte_len()) & helper::MASK32
+        self.result +%= self.rendered.byte_len() as u32
     }
 
-    fn checksum(&self) -> i64 {
-        (self.result + helper::checksum_str(self.rendered)) & helper::MASK32
+    fn checksum(&self) -> u32 {
+        self.result +% helper::checksum_str(self.rendered)
     }
 }
 
@@ -104,7 +104,7 @@ pub struct TemplateParse {
     count: i64
     doc: Document
     rendered: String
-    result: i64
+    result: u32
 }
 
 impl TemplateParse {
@@ -147,10 +147,10 @@ impl Bench for TemplateParse {
         }
 
         self.rendered = rendered
-        self.result = (self.result + self.rendered.byte_len()) & helper::MASK32
+        self.result +%= self.rendered.byte_len() as u32
     }
 
-    fn checksum(&self) -> i64 {
-        (self.result + helper::checksum_str(self.rendered)) & helper::MASK32
+    fn checksum(&self) -> u32 {
+        self.result +% helper::checksum_str(self.rendered)
     }
 }

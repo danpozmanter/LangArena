@@ -43,7 +43,7 @@ impl Graph {
 
 struct GraphPathBenchmark {
     graph: Graph
-    result: i64
+    result: u32
     prepared: bool
     vertices: i64
     jumps: i64
@@ -112,10 +112,10 @@ impl Bench for GraphBfs {
 
     fn run(&mut self, iteration_id: i64) {
         let total_length = self.bfs_shortest_path(0, self.base.graph.vertices - 1)
-        self.base.result = (self.base.result + total_length) & helper::MASK32
+        self.base.result +%= total_length as u32
     }
 
-    fn checksum(&self) -> i64 { self.base.result }
+    fn checksum(&self) -> u32 { self.base.result }
 }
 
 pub struct GraphDfs {
@@ -155,10 +155,10 @@ impl Bench for GraphDfs {
 
     fn run(&mut self, iteration_id: i64) {
         let total_length = self.dfs_find_path(0, self.base.graph.vertices - 1)
-        self.base.result = (self.base.result + total_length) & helper::MASK32
+        self.base.result +%= total_length as u32
     }
 
-    fn checksum(&self) -> i64 { self.base.result }
+    fn checksum(&self) -> u32 { self.base.result }
 }
 
 struct Node {
@@ -219,8 +219,8 @@ impl Bench for GraphAStar {
 
     fn run(&mut self, iteration_id: i64) {
         let total_length = self.a_star_shortest_path(0, self.base.graph.vertices - 1)
-        self.base.result = (self.base.result + total_length) & helper::MASK32
+        self.base.result +%= total_length as u32
     }
 
-    fn checksum(&self) -> i64 { self.base.result }
+    fn checksum(&self) -> u32 { self.base.result }
 }

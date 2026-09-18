@@ -7,7 +7,7 @@ pub struct Base64Encode {
     source: Vec<u8>
     plain: String
     encoded: String
-    result: i64
+    result: u32
 }
 
 impl Base64Encode {
@@ -29,10 +29,10 @@ fn head(text: String) -> String {
 impl Bench for Base64Encode {
     fn run(&mut self, iteration_id: i64) {
         self.encoded = base64::encode(self.source)
-        self.result = (self.result + self.encoded.byte_len()) & helper::MASK32
+        self.result +%= self.encoded.byte_len() as u32
     }
 
-    fn checksum(&self) -> i64 {
+    fn checksum(&self) -> u32 {
         helper::checksum_str(format("encode {} to {}: {}"
             head(self.plain), head(self.encoded), self.result))
     }
@@ -41,7 +41,7 @@ impl Bench for Base64Encode {
 pub struct Base64Decode {
     encoded: String
     decoded: Vec<u8>
-    result: i64
+    result: u32
 }
 
 impl Base64Decode {
@@ -58,10 +58,10 @@ impl Base64Decode {
 impl Bench for Base64Decode {
     fn run(&mut self, iteration_id: i64) {
         self.decoded = base64::decode(self.encoded).unwrap_or(#[])
-        self.result = (self.result + self.decoded.len()) & helper::MASK32
+        self.result +%= self.decoded.len() as u32
     }
 
-    fn checksum(&self) -> i64 {
+    fn checksum(&self) -> u32 {
         let mut prefix = String::new()
         for i in 0..4 { prefix.push_char(self.decoded[i] as char) }
         helper::checksum_str(format("decode {} to {}...: {}"

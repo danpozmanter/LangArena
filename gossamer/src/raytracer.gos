@@ -1,7 +1,6 @@
 use std::math
 use bench::Bench
 use config::Config
-use helper
 
 struct Vector { x: f64, y: f64, z: f64 }
 
@@ -62,7 +61,7 @@ pub struct TextRaytracer {
     h: i64
     spheres: Vec<Sphere>
     light: Light
-    result: i64
+    result: u32
 }
 
 impl TextRaytracer {
@@ -128,10 +127,10 @@ impl Bench for TextRaytracer {
                     }
                 }
 
-                self.result = (self.result + (pixel as i64)) & helper::MASK32
+                self.result +%= pixel as u32
             }
         }
     }
 
-    fn checksum(&self) -> i64 { self.result }
+    fn checksum(&self) -> u32 { self.result }
 }

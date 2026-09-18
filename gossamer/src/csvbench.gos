@@ -14,7 +14,7 @@ struct Point {
 pub struct CsvParse {
     rows: i64
     data: String
-    result: i64
+    result: u32
     rng: helper::Rng
 }
 
@@ -81,12 +81,11 @@ impl Bench for CsvParse {
         }
 
         let count = points.len() as f64
-        self.result = (self.result + helper::checksum_f64(x_sum / count) +
-            helper::checksum_f64(y_sum / count) +
-            helper::checksum_f64(z_sum / count)) & helper::MASK32
+        self.result +%= helper::checksum_f64(x_sum / count) +% helper::checksum_f64(y_sum / count) +%
+            helper::checksum_f64(z_sum / count)
     }
 
-    fn checksum(&self) -> i64 {
-        (self.result + helper::checksum_str(self.data)) & helper::MASK32
+    fn checksum(&self) -> u32 {
+        self.result +% helper::checksum_str(self.data)
     }
 }

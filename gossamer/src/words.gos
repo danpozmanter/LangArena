@@ -6,7 +6,7 @@ pub struct Words {
     words: i64
     word_len: i64
     text: String
-    result: i64
+    result: u32
     rng: helper::Rng
 }
 
@@ -49,9 +49,8 @@ impl Bench for Words {
             max_count = top.1
         }
 
-        self.result = (self.result + max_count + helper::checksum_str(max_word) +
-            frequencies.len()) & helper::MASK32
+        self.result +%= max_count as u32 +% helper::checksum_str(max_word) +% frequencies.len() as u32
     }
 
-    fn checksum(&self) -> i64 { self.result }
+    fn checksum(&self) -> u32 { self.result }
 }

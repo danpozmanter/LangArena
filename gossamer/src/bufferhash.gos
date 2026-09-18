@@ -5,7 +5,7 @@ use helper
 struct BufferHashBenchmark {
     data: Vec<u8>
     size: i64
-    result: i64
+    result: u32
     prepared: bool
     rng: helper::Rng
 }
@@ -66,10 +66,10 @@ impl Bench for BufferHashCrc32 {
 
     fn run(&mut self, iteration_id: i64) {
         let hash = crc32(self.base.data)
-        self.base.result = (self.base.result + hash as i64) & helper::MASK32
+        self.base.result +%= hash
     }
 
-    fn checksum(&self) -> i64 { self.base.result }
+    fn checksum(&self) -> u32 { self.base.result }
 }
 
 struct SimpleSha256 {}
@@ -120,8 +120,8 @@ impl Bench for BufferHashSha256 {
         let digest = SimpleSha256::digest(self.base.data)
         let hash = digest[0] as u32 | (digest[1] as u32 << 8) | (digest[2] as u32 << 16) |
         (digest[3] as u32 << 24)
-        self.base.result = (self.base.result + hash as i64) & helper::MASK32
+        self.base.result +%= hash
     }
 
-    fn checksum(&self) -> i64 { self.base.result }
+    fn checksum(&self) -> u32 { self.base.result }
 }

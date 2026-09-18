@@ -36,7 +36,7 @@ fn execute<B: Bench>(mut b: B, cfg: Config, name: String) -> (f64, bool) {
     let elapsed = (time::monotonic_nanos() - start) as f64 / 1_000_000_000.0
 
     let actual = b.checksum()
-    let expected = cfg.int(name, "checksum")
+    let expected = cfg.int(name, "checksum") as u32
     if actual == expected {
         print("OK ")
     } else {

@@ -1,6 +1,5 @@
 use bench::Bench
 use config::Config
-use helper
 
 struct Tape {
     tape: Vec<u8>
@@ -60,10 +59,10 @@ impl Program {
         if stack.is_empty() { Some(Program { commands: commands, jumps: jumps }) } else { None }
     }
 
-    fn run(&self) -> Option<i64> {
+    fn run(&self) -> Option<u32> {
         let mut tape = Tape::new()
         let mut pc = 0
-        let mut result: i64 = 0
+        let mut result: u32 = 0
 
         while pc < self.commands.len() {
             match self.commands[pc] {
@@ -73,7 +72,7 @@ impl Program {
                 b'<' => tape.devance()
                 b'[' => if tape.get() == 0 { pc = self.jumps[pc] }
                 b']' => if tape.get() != 0 { pc = self.jumps[pc] }
-                b'.' => result = ((result << 2) + tape.get() as i64) & helper::MASK32
+                b'.' => result = (result << 2) +% tape.get() as u32
                 _ => return None
             }
             pc += 1
@@ -86,7 +85,7 @@ impl Program {
 pub struct BrainfuckArray {
     program_text: String
     warmup_text: String
-    result: i64
+    result: u32
 }
 
 impl BrainfuckArray {
@@ -98,7 +97,7 @@ impl BrainfuckArray {
         }
     }
 
-    fn run_program(&self, source: String) -> Option<i64> {
+    fn run_program(&self, source: String) -> Option<u32> {
         let program = Program::new(source)?
         program.run()
     }
@@ -111,11 +110,11 @@ impl Bench for BrainfuckArray {
 
     fn run(&mut self, iteration_id: i64) {
         if let Some(value) = self.run_program(self.program_text) {
-            self.result = (self.result + value) & helper::MASK32
+            self.result +%= value
         }
     }
 
-    fn checksum(&self) -> i64 { self.result }
+    fn checksum(&self) -> u32 { self.result }
 }
 
 enum Op {
@@ -206,7 +205,7 @@ impl OpProgram {
 pub struct BrainfuckRecursion {
     text: String
     warmup_text: String
-    result: i64
+    result: u32
 }
 
 impl BrainfuckRecursion {
@@ -228,8 +227,8 @@ impl Bench for BrainfuckRecursion {
 
     fn run(&mut self, iteration_id: i64) {
         let value = self.run_text(self.text)
-        self.result = (self.result + value) & helper::MASK32
+        self.result +%= value as u32
     }
 
-    fn checksum(&self) -> i64 { self.result }
+    fn checksum(&self) -> u32 { self.result }
 }

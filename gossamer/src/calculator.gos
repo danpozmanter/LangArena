@@ -13,7 +13,7 @@ pub enum Node {
 
 pub struct CalculatorAst {
     n: i64
-    result: i64
+    result: u32
     text: String
     expressions: Vec<Node>
     rng: helper::Rng
@@ -72,14 +72,14 @@ impl Bench for CalculatorAst {
 
     fn run(&mut self, iteration_id: i64) {
         self.expressions = Parser::new(self.text).parse()
-        self.result = (self.result + self.expressions.len()) & helper::MASK32
+        self.result +%= self.expressions.len() as u32
 
         if let Some(Node::Assignment(var, _)) = self.expressions.last() {
-            self.result = (self.result + helper::checksum_str(var)) & helper::MASK32
+            self.result +%= helper::checksum_str(var)
         }
     }
 
-    fn checksum(&self) -> i64 { self.result }
+    fn checksum(&self) -> u32 { self.result }
 }
 
 struct Parser {
@@ -239,7 +239,7 @@ fn magnitude(x: i64) -> i64 { if x < 0 { x *% -1 } else { x } }
 pub struct CalculatorInterpreter {
     n: i64
     ast: Vec<Node>
-    result: i64
+    result: u32
 }
 
 impl CalculatorInterpreter {
@@ -317,8 +317,8 @@ impl Bench for CalculatorInterpreter {
     fn run(&mut self, iteration_id: i64) {
         let mut interpreter = Interpreter::new()
         let result = interpreter.run(self.ast)
-        self.result = (self.result + result) & helper::MASK32
+        self.result +%= result as u32
     }
 
-    fn checksum(&self) -> i64 { self.result }
+    fn checksum(&self) -> u32 { self.result }
 }

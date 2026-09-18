@@ -182,7 +182,7 @@ impl Bench for NeuralNet {
         }
     }
 
-    fn checksum(&self) -> i64 {
+    fn checksum(&self) -> u32 {
         let mut net_copy = self.xor_net
 
         net_copy.feed_forward([0.0, 0.0])

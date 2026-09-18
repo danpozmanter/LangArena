@@ -1,5 +1,3 @@
-pub const MASK32: i64 = 0xFFFFFFFF
-
 const IM: i64 = 139_968
 const IA: i64 = 3877
 const IC: i64 = 29573
@@ -23,22 +21,22 @@ impl Rng {
     }
 }
 
-pub fn checksum_str(v: String) -> i64 {
-    let mut hash: i64 = 5381
+pub fn checksum_str(v: String) -> u32 {
+    let mut hash: u32 = 5381
     for b in v.bytes() {
-        hash = ((hash << 5) + hash + (b as i64)) & MASK32
+        hash = (hash << 5) +% hash +% b as u32
     }
     hash
 }
 
-pub fn checksum_bytes(v: [u8]) -> i64 {
-    let mut hash: i64 = 5381
+pub fn checksum_bytes(v: [u8]) -> u32 {
+    let mut hash: u32 = 5381
     for b in v {
-        hash = ((hash << 5) + hash + (b as i64)) & MASK32
+        hash = (hash << 5) +% hash +% b as u32
     }
     hash
 }
 
-pub fn checksum_f64(v: f64) -> i64 {
+pub fn checksum_f64(v: f64) -> u32 {
     checksum_str(format("{:.7}", v))
 }

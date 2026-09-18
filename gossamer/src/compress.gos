@@ -1,6 +1,5 @@
 use bench::Bench
 use config::Config
-use helper
 
 fn generate_test_data(size: i64) -> Vec<u8> {
     let pattern = "ABRACADABRA".as_bytes()
@@ -21,6 +20,11 @@ impl BwtResult {
     fn new(transformed: Vec<u8>, original_idx: i64) -> BwtResult {
         BwtResult { transformed: transformed, original_idx: original_idx }
     }
+}
+
+struct BwtPair {
+    first: i64
+    second: i64
 }
 
 fn bwt_transform(input: [u8]) -> BwtResult {
@@ -62,16 +66,13 @@ fn bwt_transform(input: [u8]) -> BwtResult {
 
         let mut k = 1
         while k < n {
+            let mut pairs: Vec<BwtPair> = Vec::with_capacity(n)
+            for i in 0..n { pairs.push(BwtPair { first: rank[i], second: rank[(i + k) % n] }) }
+
             sa.sort_by(|a, b| {
-                let ra = rank[a]
-                let rb = rank[b]
-                if ra != rb {
-                    ra - rb
-                } else {
-                    let rak = rank[(a + k) % n]
-                    let rbk = rank[(b + k) % n]
-                    rak - rbk
-                }
+                let pa = pairs[a]
+                let pb = pairs[b]
+                if pa.first != pb.first { pa.first - pb.first } else { pa.second - pb.second }
             })
 
             let mut new_rank: Vec<i64> = #[0; n]
@@ -79,12 +80,8 @@ fn bwt_transform(input: [u8]) -> BwtResult {
             for i in 1..n {
                 let prev = sa[i - 1]
                 let curr = sa[i]
-                new_rank[curr] = new_rank[prev] + if rank[prev] != rank[curr] ||
-                    rank[(prev + k) % n] != rank[(curr + k) % n] {
-                    1
-                } else {
-                    0
-                }
+                let same = pairs[prev] == pairs[curr]
+                new_rank[curr] = new_rank[prev] + if same { 0 } else { 1 }
             }
 
             rank = new_rank
@@ -111,7 +108,7 @@ pub struct BwtEncode {
     size_val: i64
     test_data: Vec<u8>
     bwt_result: BwtResult
-    result: i64
+    result: u32
 }
 
 impl BwtEncode {
@@ -127,10 +124,10 @@ impl Bench for BwtEncode {
 
     fn run(&mut self, iteration_id: i64) {
         self.bwt_result = bwt_transform(self.test_data)
-        self.result = (self.result + self.bwt_result.transformed.len()) & helper::MASK32
+        self.result +%= self.bwt_result.transformed.len() as u32
     }
 
-    fn checksum(&self) -> i64 { self.result }
+    fn checksum(&self) -> u32 { self.result }
 }
 
 fn bwt_inverse(bwt_result: BwtResult) -> Vec<u8> {
@@ -174,7 +171,7 @@ pub struct BwtDecode {
     test_data: Vec<u8>
     inverted: Vec<u8>
     bwt_result: BwtResult
-    result: i64
+    result: u32
 }
 
 impl BwtDecode {
@@ -200,12 +197,12 @@ impl Bench for BwtDecode {
 
     fn run(&mut self, iteration_id: i64) {
         self.inverted = bwt_inverse(self.bwt_result)
-        self.result = (self.result + self.inverted.len()) & helper::MASK32
+        self.result +%= self.inverted.len() as u32
     }
 
-    fn checksum(&self) -> i64 {
+    fn checksum(&self) -> u32 {
         let mut res = self.result
-        if self.inverted == self.test_data { res = (res + 100_000) & helper::MASK32 }
+        if self.inverted == self.test_data { res +%= 100_000 }
         res
     }
 }
@@ -329,7 +326,7 @@ pub struct HuffEncode {
     size_val: i64
     test_data: Vec<u8>
     encoded: EncodedResult
-    result: i64
+    result: u32
 }
 
 impl HuffEncode {
@@ -358,10 +355,10 @@ impl Bench for HuffEncode {
         if let Some(tree) = tree { build_huffman_codes(tree, 0, 0, &mut codes) }
 
         self.encoded = huffman_encode(self.test_data, codes, frequencies)
-        self.result = (self.result + self.encoded.data.len()) & helper::MASK32
+        self.result +%= self.encoded.data.len() as u32
     }
 
-    fn checksum(&self) -> i64 { self.result }
+    fn checksum(&self) -> u32 { self.result }
 }
 
 fn huffman_decode(encoded: [u8], root: HuffmanNode, bit_count: i64) -> Vec<u8> {
@@ -403,7 +400,7 @@ pub struct HuffDecode {
     test_data: Vec<u8>
     decoded: Vec<u8>
     encoded: EncodedResult
-    result: i64
+    result: u32
 }
 
 impl HuffDecode {
@@ -432,13 +429,13 @@ impl Bench for HuffDecode {
         let tree = build_huffman_tree(self.encoded.frequencies)
         if let Some(tree) = tree {
             self.decoded = huffman_decode(self.encoded.data, tree, self.encoded.bit_count)
-            self.result = (self.result + self.decoded.len()) & helper::MASK32
+            self.result +%= self.decoded.len() as u32
         }
     }
 
-    fn checksum(&self) -> i64 {
+    fn checksum(&self) -> u32 {
         let mut res = self.result
-        if self.decoded == self.test_data { res = (res + 100_000) & helper::MASK32 }
+        if self.decoded == self.test_data { res +%= 100_000 }
         res
     }
 }
@@ -565,7 +562,7 @@ fn arith_encode(data: [u8]) -> ArithEncodedResult {
 
 pub struct ArithEncode {
     size_val: i64
-    result: i64
+    result: u32
     test_data: Vec<u8>
     encoded: ArithEncodedResult
 }
@@ -583,10 +580,10 @@ impl Bench for ArithEncode {
 
     fn run(&mut self, iteration_id: i64) {
         self.encoded = arith_encode(self.test_data)
-        self.result = (self.result + self.encoded.data.len()) & helper::MASK32
+        self.result +%= self.encoded.data.len() as u32
     }
 
-    fn checksum(&self) -> i64 { self.result }
+    fn checksum(&self) -> u32 { self.result }
 }
 
 struct BitInputStream {
@@ -681,7 +678,7 @@ fn arith_decode(encoded: ArithEncodedResult) -> Vec<u8> {
 
 pub struct ArithDecode {
     size_val: i64
-    result: i64
+    result: u32
     test_data: Vec<u8>
     decoded: Vec<u8>
     encoded: ArithEncodedResult
@@ -714,12 +711,12 @@ impl Bench for ArithDecode {
 
     fn run(&mut self, iteration_id: i64) {
         self.decoded = arith_decode(self.encoded)
-        self.result = (self.result + self.decoded.len()) & helper::MASK32
+        self.result +%= self.decoded.len() as u32
     }
 
-    fn checksum(&self) -> i64 {
+    fn checksum(&self) -> u32 {
         let mut res = self.result
-        if self.decoded == self.test_data { res = (res + 100_000) & helper::MASK32 }
+        if self.decoded == self.test_data { res +%= 100_000 }
         res
     }
 }
@@ -734,7 +731,7 @@ impl LzwResult {
 
 pub struct LzwEncode {
     size_val: i64
-    result: i64
+    result: u32
     test_data: Vec<u8>
     encoded: LzwResult
 }
@@ -788,10 +785,10 @@ impl Bench for LzwEncode {
 
     fn run(&mut self, iteration_id: i64) {
         self.encoded = self.lzw_encode(self.test_data)
-        self.result = (self.result + self.encoded.data.len()) & helper::MASK32
+        self.result +%= self.encoded.data.len() as u32
     }
 
-    fn checksum(&self) -> i64 { self.result }
+    fn checksum(&self) -> u32 { self.result }
 }
 
 fn lzw_decode(encoded: LzwResult) -> Vec<u8> {
@@ -841,7 +838,7 @@ fn lzw_decode(encoded: LzwResult) -> Vec<u8> {
 
 pub struct LzwDecode {
     size_val: i64
-    result: i64
+    result: u32
     test_data: Vec<u8>
     decoded: Vec<u8>
     encoded: LzwResult
@@ -872,12 +869,12 @@ impl Bench for LzwDecode {
 
     fn run(&mut self, iteration_id: i64) {
         self.decoded = lzw_decode(self.encoded)
-        self.result = (self.result + self.decoded.len()) & helper::MASK32
+        self.result +%= self.decoded.len() as u32
     }
 
-    fn checksum(&self) -> i64 {
+    fn checksum(&self) -> u32 {
         let mut res = self.result
-        if self.decoded == self.test_data { res = (res + 100_000) & helper::MASK32 }
+        if self.decoded == self.test_data { res +%= 100_000 }
         res
     }
 }

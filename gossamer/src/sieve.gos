@@ -1,10 +1,9 @@
 use bench::Bench
 use config::Config
-use helper
 
 pub struct Sieve {
     limit: i64
-    result: i64
+    result: u32
 }
 
 impl Sieve {
@@ -42,8 +41,8 @@ impl Bench for Sieve {
             n += 2
         }
 
-        self.result = (self.result + last_prime + count) & helper::MASK32
+        self.result +%= (last_prime + count) as u32
     }
 
-    fn checksum(&self) -> i64 { self.result }
+    fn checksum(&self) -> u32 { self.result }
 }
