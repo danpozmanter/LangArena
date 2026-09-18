@@ -25,7 +25,7 @@ LANG_MASKS = {
   'scala' => ['./scala', ['.scala'], ['target', 'project'], "\"/Users/kostya/Library/Application Support/Coursier/bin/scalafmt\" -i src/"],
   'mojo' => ['./mojo', ['.mojo'], ['target', '.venv', '.pixi'], 'pixi run mojo format $@'],
   'php' => ['./php', ['.php'], [], 'pretty-php $@'],
-  'gossamer' => ['./gossamer', ['.gos'], ['target', '.gos-cache'], 'gos fmt $@']
+  'gossamer' => ['./gossamer', ['.gos'], ['target', '.gos-cache'], 'gos fmt $@'],
   'javascript' => ['./javascript', ['.js'], [], 'npx oxfmt $@ < /dev/null'],
 }
 
