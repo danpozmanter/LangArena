@@ -2,12 +2,12 @@ FROM langarena:base
 
 ARG version
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends openjdk-$version-jdk-headless \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+RUN wget -O jdk.tar.gz "https://api.adoptium.net/v3/binary/latest/$version/ga/linux/x64/jdk/hotspot/normal/eclipse" \
+    && mkdir -p /opt/jdk \
+    && tar -xzf jdk.tar.gz -C /opt/jdk --strip-components=1 \
+    && rm jdk.tar.gz
 
-ENV JAVA_HOME="/usr/lib/jvm/java-$version-openjdk-amd64"
+ENV JAVA_HOME="/opt/jdk"
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
 ARG mavenversion
