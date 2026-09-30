@@ -1,9 +1,5 @@
 # LangArena: Programming Language Benchmark Suite
 
----
-# *Updates are frozen due to technical issues with my PC*
----
-
 [Results Page](https://kostya.github.io/LangArena/)
 
 ## What is it?
