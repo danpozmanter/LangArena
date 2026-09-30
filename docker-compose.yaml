@@ -28,7 +28,7 @@ services:
       dockerfile: docker/crystal
       args:
         # https://github.com/crystal-lang/crystal/releases
-        version: 1.21.0
+        version: 1.21.1
     volumes:
       - .:/src
 
@@ -49,7 +49,7 @@ services:
       dockerfile: docker/rust
       args:
         # https://github.com/rust-lang/rust/releases/
-        version: 1.98.0
+        version: 1.98.1
     volumes:
       - .:/src
 
@@ -116,7 +116,7 @@ services:
       dockerfile: docker/base_clang
       args:
         # https://github.com/llvm/llvm-project/releases
-        version: "22.1.8"
+        version: "23.1.2"
     depends_on:
       - base
 
@@ -288,7 +288,7 @@ services:
       dockerfile: docker/swift
       args:
         # https://github.com/swiftlang/swift/releases
-        version: "6.3.3"
+        version: "6.4.0"
     volumes:
       - .:/src
 
@@ -344,9 +344,9 @@ services:
       dockerfile: docker/kotlin
       args:
         # https://kotlinlang.org/docs/releases.html
-        version: "2.4.10"
+        version: "2.4.20"
         # https://gradle.org/releases/
-        gradleversion: 9.7.1
+        gradleversion: 9.8.0
     volumes:
       - .:/src
 
@@ -370,9 +370,9 @@ services:
       dockerfile: docker/graalvm
       args:
         # https://github.com/graalvm/graalvm-ce-builds/releases
-        graal_version: "25.3.4.1"
-        jdk_version: "25.0.4.1"
-        iversion: "25i3"
+        graal_version: "25.4.4.1.1"
+        jdk_version: "25.0.4.1.1"
+        iversion: "25i4"
         # https://maven.apache.org/download.cgi
         mavenversion: 3.9.16
     volumes:
@@ -394,9 +394,9 @@ services:
       dockerfile: docker/kotlin-graalvm
       args:
         # https://kotlinlang.org/docs/releases.html
-        version: "2.4.10"
+        version: "2.4.20"
         # https://gradle.org/releases/
-        gradleversion: 9.7.1
+        gradleversion: 9.8.0
     volumes:
       - .:/src
 
@@ -443,7 +443,7 @@ services:
       dockerfile: docker/typescript-deno
       args:
         # https://github.com/denoland/deno/releases
-        version: "2.9.6"
+        version: "2.9.7"
     volumes:
       - .:/src
 
@@ -465,7 +465,7 @@ services:
       dockerfile: docker/typescript-bun
       args:
         # https://bun.com/
-        version: "1.4.0"
+        version: "1.4.2"
     volumes:
       - .:/src
 
@@ -591,7 +591,7 @@ services:
       dockerfile: docker/gossamer
       args:
         # https://github.com/gossamer-lang/gossamer/releases
-        version: "0.61.4"
+        version: "0.65.0"
     volumes:
       - .:/src
       - ./cache/build/gossamer/target:/src/gossamer/target
@@ -607,7 +607,7 @@ services:
       dockerfile: docker/julia
       args:
         # https://github.com/JuliaLang/julia/releases
-        version: "1.13.0-beta3"
+        version: "1.13.1"
     volumes:
       - .:/src
 
@@ -633,7 +633,7 @@ services:
       dockerfile: docker/nim_gcc
       args:
         # https://nim-lang.org
-        version: "2.2.10"
+        version: "2.2.12"
     volumes:
       - .:/src
 
@@ -658,7 +658,7 @@ services:
       dockerfile: docker/nim_clang
       args:
         # https://nim-lang.org
-        version: "2.2.10"
+        version: "2.2.12"
     volumes:
       - .:/src
 
@@ -684,8 +684,8 @@ services:
       dockerfile: docker/nim_nlvm      
       args:
         # https://github.com/arnetheduck/nlvm/releases/tag/continuous
-        version: "a7bb73d"
-        nimversion: "2.2.10"
+        version: "40d7339"
+        nimversion: "2.2.12"
     volumes:
       - .:/src
 
@@ -711,7 +711,7 @@ services:
       dockerfile: docker/dart
       args:
         # https://dart.dev/get-dart/archive#stable-channel
-        version: "3.13.3"
+        version: "3.13.5"
     volumes:
       - .:/src
 
@@ -767,7 +767,7 @@ services:
       dockerfile: docker/c3
       args:
         # https://github.com/c3lang/c3c/releases
-        version: "0.8.3"
+        version: "0.8.4"
     volumes:
       - .:/src      
       - ./cache/build/c3/build:/src/c3/build
@@ -782,9 +782,9 @@ services:
       dockerfile: docker/scala
       args:
         # https://www.scala-lang.org/download/
-        version: "3.8.4"
+        version: "3.9.0"
         # https://github.com/sbt/sbt/releases
-        sbtversion: "2.0.8"
+        sbtversion: "2.0.9"
     volumes:
       - .:/src
 
@@ -806,9 +806,9 @@ services:
       dockerfile: docker/scala-graalvm
       args:
         # https://www.scala-lang.org/download/
-        version: "3.8.4"
+        version: "3.9.0"
         # https://github.com/sbt/sbt/releases
-        sbtversion: "2.0.8"
+        sbtversion: "2.0.9"
     volumes:
       - .:/src
 
@@ -843,7 +843,7 @@ services:
       dockerfile: docker/mycc
       args:
         # https://github.com/crystal-lang/crystal/releases
-        crystal_version: 1.21.0
+        crystal_version: 1.21.1
         # https://github.com/kostya/myc/tags
         version: "v0.10.0"
     volumes:
@@ -885,7 +885,7 @@ services:
       dockerfile: docker/ruby4
       args:
         # https://www.ruby-lang.org/ru/downloads/releases/
-        version: "4.0.6"
+        version: "4.0.7"
     depends_on:
       - rust
   
@@ -909,7 +909,7 @@ services:
       dockerfile: docker/truffleruby_jvm
       args:
         # https://github.com/truffleruby/truffleruby/releases
-        version: "34.0.1"
+        version: "40.0.0"
     depends_on:
       - base
 
@@ -933,7 +933,7 @@ services:
       dockerfile: docker/spinel_clang
       args:
         # https://github.com/matz/spinel
-        version: "cdf83a4a9a6f3764057c556ac512f482ae0bdf99"
+        version: "483a3a662cf57d029a1a5b2d14708c76f449a9dc"
     volumes:
       - .:/src
       - ./cache/build/spinel_clang/target:/src/ruby/target
