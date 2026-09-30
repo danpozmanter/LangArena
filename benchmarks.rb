@@ -4,7 +4,7 @@
 #
 # Run all `ruby benchmarks.rb`
 # Run only Lang Regex `ruby benchmarks.rb C++`
-# Run only Lang Regex and Test Regex `ruby benchmarks.rb C++ Primes`
+# Run only Lang Regex and Test Regex `ruby benchmarks.rb C++ JSON`
 # Run Prod configs exclude Hack `PROD=1 ruby benchmarks.rb`
 # Run test configs - just to check (faster finished) `TEST=1 ruby benchmarks.rb`
 
@@ -26,6 +26,8 @@ IS_MACOS = RUBY_PLATFORM =~ /darwin/
 START_TIME = Process.clock_gettime(Process::CLOCK_MONOTONIC, :nanosecond)
 
 def dotnet_runtime
+  image_exists = system("docker image inspect langarena:dotnet > /dev/null 2>&1")  
+  return "linux-x64" unless image_exists
   output = `docker compose run --rm -q dotnet dotnet --info | grep RID`.strip
   output =~ /RID:\s*(\S+)/ ? $1 : "linux-x64"
 end
