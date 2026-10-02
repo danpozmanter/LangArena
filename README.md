@@ -110,6 +110,10 @@ Benchmark ideas were taken from:
 *   My own collections: [benchmarks](https://github.com/kostya/benchmarks), [jit-benchmarks](https://github.com/kostya/jit-benchmarks), [crystal-benchmarks-game](https://github.com/kostya/crystal-benchmarks-game), [crystal-metric](https://github.com/kostya/crystal-metric)
 *   Crystal code samples
 
+## Related
+
+* A single-file, self-contained [stress test](https://github.com/kostya/index-c) for C compilers and optimizers.
+
 ## Beyond Just Ranking
 
 This suite is also a practical tool for:
