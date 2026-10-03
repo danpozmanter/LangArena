@@ -61,34 +61,32 @@ final class BinarytreesArena: BenchmarkProtocol {
   }
 
   struct TreeNode {
-    let item: Int
-    var left: Int = -1
-    var right: Int = -1
+    let item: Int32
+    var left: Int32 = -1
+    var right: Int32 = -1
   }
 
-  class TreeArena {
+  struct TreeArena {
     private var nodes: [TreeNode] = []
 
-    func build(item: Int, depth: Int) -> Int {
-      let idx = nodes.count
+    mutating func build(item: Int32, depth: Int) -> Int32 {
+      let idx = Int32(nodes.count)
       nodes.append(TreeNode(item: item))
 
       if depth > 0 {
-        let shift = 1 << (depth - 1)
+        let shift = Int32(1) << (depth - 1)
         let leftIdx = build(item: item - shift, depth: depth - 1)
         let rightIdx = build(item: item + shift, depth: depth - 1)
-        var node = nodes[idx]
-        node.left = leftIdx
-        node.right = rightIdx
-        nodes[idx] = node
+        nodes[Int(idx)].left = leftIdx
+        nodes[Int(idx)].right = rightIdx
       }
 
       return idx
     }
 
-    func sum(idx: Int) -> UInt32 {
-      let node = nodes[idx]
-      var total = UInt32(bitPattern: Int32(node.item)) &+ 1
+    func sum(idx: Int32) -> UInt32 {
+      let node = nodes[Int(idx)]
+      var total = UInt32(bitPattern: node.item) &+ 1
 
       if node.left >= 0 {
         total &+= sum(idx: node.left)
@@ -102,7 +100,7 @@ final class BinarytreesArena: BenchmarkProtocol {
   }
 
   func run(iterationId: Int) {
-    let arena = TreeArena()
+    var arena = TreeArena()
     let rootIdx = arena.build(item: 0, depth: Int(n))
     resultVal &+= arena.sum(idx: rootIdx)
   }
