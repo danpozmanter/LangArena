@@ -1,5 +1,10 @@
 FROM langarena:base
 
 ARG version
-RUN apt install -y --no-install-recommends dotnet-sdk-$version libbrotli-dev \
-    && apt clean
+
+RUN wget --progress=dot:giga -O - \
+    https://builds.dotnet.microsoft.com/dotnet/Sdk/$version/dotnet-sdk-$version-linux-x64.tar.gz \
+    | tar -xz -C /opt/dotnet
+
+ENV DOTNET_ROOT=/opt/dotnet
+ENV PATH=/opt/dotnet:$PATH
