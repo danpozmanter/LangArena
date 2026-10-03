@@ -5,7 +5,7 @@ RUN wget --progress=dot:giga -O - \
     https://github.com/arnetheduck/nlvm/releases/download/continuous/nlvm-linux-$version.tar.xz \
     | tar -xJ
 
-ENV PATH="/opt/nlvm-linux-$version:$PATH"
+ENV PATH="/opt/nlvm-linux-$version/bin:$PATH"
 
 ARG nimversion
 RUN curl https://nim-lang.org/choosenim/init.sh -sSf | sh -s -- --yes --version $nimversion
