@@ -49,7 +49,7 @@ services:
       dockerfile: docker/rust
       args:
         # https://github.com/rust-lang/rust/releases/
-        version: 1.98.1
+        version: 1.99.0
     volumes:
       - .:/src
 
@@ -69,7 +69,7 @@ services:
       args:
         nodeversion: "26.x"
         # https://github.com/WasmEdge/WasmEdge/releases
-        wasmedge_version: "0.17.1"
+        wasmedge_version: "0.17.2"
     volumes:
       - .:/src
 
@@ -116,7 +116,7 @@ services:
       dockerfile: docker/base_clang
       args:
         # https://github.com/llvm/llvm-project/releases
-        version: "23.1.2"
+        version: "22.1.8"
     depends_on:
       - base
 
@@ -524,26 +524,26 @@ services:
     depends_on:
       - base
 
-  gdc:
-    <<: *shared
-    image: langarena:gdc
-    working_dir: /src/d
-    build:
-      dockerfile: docker/gdc
-      args:
-        version: "16"
-    volumes:
-      - .:/src
+  # gdc:
+  #   <<: *shared
+  #   image: langarena:gdc
+  #   working_dir: /src/d
+  #   build:
+  #     dockerfile: docker/gdc
+  #     args:
+  #       version: "16"
+  #   volumes:
+  #     - .:/src
 
-      - ./cache/deps/d/dub-packages:/root/.dub/packages
+  #     - ./cache/deps/d/dub-packages:/root/.dub/packages
 
-      - ./cache/build/gdc/target:/src/d/target
-      - ./cache/build/gdc/.dub:/src/d/.dub
-      - ./cache/build/gdc/dub-cache:/root/.dub/cache
-    environment:
-      - DUB_HOME=/root/.dub
-    depends_on:
-      - ldc
+  #     - ./cache/build/gdc/target:/src/d/target
+  #     - ./cache/build/gdc/.dub:/src/d/.dub
+  #     - ./cache/build/gdc/dub-cache:/root/.dub/cache
+  #   environment:
+  #     - DUB_HOME=/root/.dub
+  #   depends_on:
+  #     - ldc
 
   v_gcc:
     <<: *shared
@@ -591,7 +591,7 @@ services:
       dockerfile: docker/gossamer
       args:
         # https://github.com/gossamer-lang/gossamer/releases
-        version: "0.65.1"
+        version: "0.65.2"
     volumes:
       - .:/src
       - ./cache/build/gossamer/target:/src/gossamer/target
@@ -845,7 +845,7 @@ services:
         # https://github.com/crystal-lang/crystal/releases
         crystal_version: 1.21.1
         # https://github.com/kostya/myc/tags
-        version: "v0.10.0"
+        version: "d97db60488f7d7ab268964b232bb35e2cf7449b5"
     volumes:
       - .:/src
       - ./cache/deps/mycc/deps:/src/c/deps
@@ -933,7 +933,7 @@ services:
       dockerfile: docker/spinel_clang
       args:
         # https://github.com/matz/spinel
-        version: "483a3a662cf57d029a1a5b2d14708c76f449a9dc"
+        version: "1d26ef67ceb9d46d1bbc9ee3373545483f1224d4"
     volumes:
       - .:/src
       - ./cache/build/spinel_clang/target:/src/ruby/target
