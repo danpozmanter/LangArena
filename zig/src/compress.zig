@@ -39,12 +39,12 @@ pub const BWTEncode = struct {
         errdefer allocator.free(sa);
         for (0..n) |i| sa[i] = i;
 
-        var counts = [_]usize{0} ** 256;
+        var counts: [256]usize = @splat(0);
         for (data) |byte| {
             counts[byte] += 1;
         }
 
-        var positions = [_]usize{0} ** 256;
+        var positions: [256]usize = @splat(0);
         var total: usize = 0;
         for (0..256) |i| {
             positions[i] = total;
@@ -215,12 +215,12 @@ pub const BWTDecode = struct {
         const n = bwt.len;
         if (n == 0) return &.{};
 
-        var counts: [256]usize = [_]usize{0} ** 256;
+        var counts: [256]usize = @splat(0);
         for (bwt) |byte| {
             counts[byte] += 1;
         }
 
-        var positions: [256]usize = [_]usize{0} ** 256;
+        var positions: [256]usize = @splat(0);
         var total: usize = 0;
         for (0..256) |i| {
             positions[i] = total;
@@ -230,7 +230,7 @@ pub const BWTDecode = struct {
         var next = try allocator.alloc(usize, n);
         errdefer allocator.free(next);
 
-        var temp_counts: [256]usize = [_]usize{0} ** 256;
+        var temp_counts: [256]usize = @splat(0);
         for (0..n) |i| {
             const byte = bwt[i];
             const pos = positions[byte] + temp_counts[byte];
@@ -384,8 +384,8 @@ const HuffmanCodes = struct {
 
     fn init() HuffmanCodes {
         return HuffmanCodes{
-            .code_lengths = [_]u8{0} ** 256,
-            .codes = [_]u32{0} ** 256,
+            .code_lengths = @as([256]u8, @splat(0)),
+            .codes = @as([256]u32, @splat(0)),
         };
     }
 };
@@ -544,7 +544,7 @@ pub const HuffEncode = struct {
             .helper = helper,
             .size_val = size,
             .test_data = &.{},
-            .encoded = .{ .data = &.{}, .bit_count = 0, .frequencies = [_]u32{0} ** 256 },
+            .encoded = .{ .data = &.{}, .bit_count = 0, .frequencies = @as([256]u32, @splat(0)) },
             .result_val = 0,
         };
         return self;
@@ -578,7 +578,7 @@ pub const HuffEncode = struct {
             self.encoded.deinit(self.allocator);
         }
 
-        var frequencies: [256]u32 = [_]u32{0} ** 256;
+        var frequencies: [256]u32 = @splat(0);
         for (self.test_data) |byte| {
             frequencies[byte] += 1;
         }
@@ -685,7 +685,7 @@ pub const HuffDecode = struct {
             .size_val = size,
             .test_data = &.{},
             .decoded = &.{},
-            .encoded = .{ .data = &.{}, .bit_count = 0, .frequencies = [_]u32{0} ** 256 },
+            .encoded = .{ .data = &.{}, .bit_count = 0, .frequencies = @as([256]u32, @splat(0)) },
             .result_val = 0,
         };
         return self;
@@ -737,7 +737,7 @@ pub const HuffDecode = struct {
             .data = self.allocator.dupe(u8, encoder.encoded.data) catch {
                 self.allocator.free(self.test_data);
                 self.test_data = &.{};
-                self.encoded = .{ .data = &.{}, .bit_count = 0, .frequencies = [_]u32{0} ** 256 };
+                self.encoded = .{ .data = &.{}, .bit_count = 0, .frequencies = @as([256]u32, @splat(0)) };
                 return;
             },
             .bit_count = encoder.encoded.bit_count,
@@ -803,8 +803,8 @@ const ArithFreqTable = struct {
     fn init(frequencies: []const u32) ArithFreqTable {
         var ft = ArithFreqTable{
             .total = 0,
-            .low = [_]u32{0} ** 256,
-            .high = [_]u32{0} ** 256,
+            .low = @as([256]u32, @splat(0)),
+            .high = @as([256]u32, @splat(0)),
         };
 
         for (frequencies) |f| {
@@ -886,7 +886,7 @@ pub const ArithEncode = struct {
     result_val: u32,
 
     fn arithEncode(data: []const u8, allocator: std.mem.Allocator) !ArithEncodedResult {
-        var frequencies: [256]u32 = [_]u32{0} ** 256;
+        var frequencies: [256]u32 = @splat(0);
         for (data) |byte| {
             frequencies[byte] += 1;
         }
@@ -976,7 +976,7 @@ pub const ArithEncode = struct {
             .helper = helper,
             .size_val = size,
             .test_data = &.{},
-            .encoded = .{ .data = &.{}, .bit_count = 0, .frequencies = [_]u32{0} ** 256 },
+            .encoded = .{ .data = &.{}, .bit_count = 0, .frequencies = @as([256]u32, @splat(0)) },
             .result_val = 0,
         };
         return self;
@@ -1148,7 +1148,7 @@ pub const ArithDecode = struct {
             .size_val = size,
             .test_data = &.{},
             .decoded = &.{},
-            .encoded = .{ .data = &.{}, .bit_count = 0, .frequencies = [_]u32{0} ** 256 },
+            .encoded = .{ .data = &.{}, .bit_count = 0, .frequencies = @as([256]u32, @splat(0)) },
             .result_val = 0,
         };
         return self;

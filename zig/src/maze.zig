@@ -280,7 +280,7 @@ pub const MazeGenerator = struct {
         if (self.maze) |m| {
             m.reset();
             m.generate() catch return;
-            self.result_val +%= @intFromEnum(m.middleCell().kind);
+            self.result_val +%= @backingInt(m.middleCell().kind);
         }
     }
 
