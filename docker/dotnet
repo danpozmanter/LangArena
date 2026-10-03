@@ -2,6 +2,12 @@ FROM langarena:base
 
 ARG version
 
+RUN apt update && apt install -y --no-install-recommends \
+        libbrotli-dev \
+    && apt clean
+
+RUN mkdir -p /opt/dotnet
+
 RUN wget --progress=dot:giga -O - \
     https://builds.dotnet.microsoft.com/dotnet/Sdk/$version/dotnet-sdk-$version-linux-x64.tar.gz \
     | tar -xz -C /opt/dotnet
