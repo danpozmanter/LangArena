@@ -4,6 +4,7 @@ ARG version
 
 RUN apt update && apt install -y --no-install-recommends \
         libbrotli-dev \
+        libicu-dev \
     && apt clean
 
 RUN mkdir -p /opt/dotnet

@@ -1060,8 +1060,8 @@ RUNS = [
   Run.new(
     name: "C#/JIT", 
     build_cmd: "dotnet build -c Release",
-    binary_name: "./bin/Release/net10.0/Benchmark.dll",
-    run_cmd: "dotnet ./bin/Release/net10.0/Benchmark.dll", 
+    binary_name: "./bin/Release/net11.0/Benchmark.dll",
+    run_cmd: "dotnet ./bin/Release/net11.0/Benchmark.dll", 
     version_cmd: "dotnet --version",
     dir: "/src/csharp",
     container: "dotnet",   
@@ -1166,8 +1166,8 @@ RUNS = [
   Run.new(
     name: "F#/JIT", 
     build_cmd: "dotnet build -c Release",
-    binary_name: "./bin/Release/net10.0/MyFirstFSharpApp.dll",
-    run_cmd: "dotnet ./bin/Release/net10.0/MyFirstFSharpApp.dll", 
+    binary_name: "./bin/Release/net11.0/MyFirstFSharpApp.dll",
+    run_cmd: "dotnet ./bin/Release/net11.0/MyFirstFSharpApp.dll", 
     version_cmd: "dotnet --version",
     dir: "/src/fsharp",
     container: "fsharp",   
