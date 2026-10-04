@@ -2395,7 +2395,7 @@ RUNS = [
 
   Run.new(
     name: "Ruby/Spinel/Clang", 
-    build_cmd: "spinel main.rb -o target/bin_spinel_clang",
+    build_cmd: "spinel main.rb --int-overflow=wrap -o target/bin_spinel_clang",
     binary_name: "target/bin_spinel_clang",
     run_cmd: "target/bin_spinel_clang", 
     version_cmd: "spinel --version",
@@ -2407,7 +2407,7 @@ RUNS = [
 
   # Run.new(
   #   name: "Ruby/Spinel/Gcc", 
-  #   build_cmd: "spinel main.rb -o target/bin_spinel_gcc",
+  #   build_cmd: "spinel main.rb --int-overflow=wrap -o target/bin_spinel_gcc",
   #   binary_name: "target/bin_spinel_gcc",
   #   run_cmd: "target/bin_spinel_gcc", 
   #   version_cmd: "spinel --version",
