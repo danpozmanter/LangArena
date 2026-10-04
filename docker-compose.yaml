@@ -290,12 +290,8 @@ services:
         version: "6.4.0"
     volumes:
       - .:/src
-
       - ./cache/deps/swift/package-cache:/root/.swiftpm/package-cache
-      - ./cache/deps/swift/checkouts:/src/swift/.build/checkouts
-      - ./cache/deps/swift/repositories:/src/swift/.build/repositories
-
-      - ./cache/build/swift/artifacts:/src/swift/.build/artifacts
+      - ./cache/build/swift/.build:/src/swift/.build
       - ./cache/build/swift/cache:/root/.cache/swift
     environment:
       - SWIFT_PACKAGE_CACHE_DIR=/root/.swiftpm/package-cache
