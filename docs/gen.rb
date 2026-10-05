@@ -361,7 +361,8 @@ This table compares how concisely different programming languages express the sa
     • If UserTime == WallTime - build is mostly single-threaded<br>
     • If SysTime is high - likely I/O or network activity<br>
 
-    Note on UserTime: in some cases it may be inaccurate because of fork-like build systems (C#, Kotlin).
+    <br>
+    Note on UserTime: in some cases it may be inaccurate because of fork-like build systems (C#, F#, Kotlin).
     DESC
 
     header = [

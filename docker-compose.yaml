@@ -928,7 +928,7 @@ services:
       dockerfile: docker/spinel_clang
       args:
         # https://github.com/matz/spinel
-        version: "1d26ef67ceb9d46d1bbc9ee3373545483f1224d4"
+        version: "e19beacb1186d8dbecaa108e48d34fdeb669aa92"
     volumes:
       - .:/src
       - ./cache/build/spinel_clang/target:/src/ruby/target
