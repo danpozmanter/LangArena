@@ -547,40 +547,36 @@ function history_tab(select_lang = 'c', key = 'history', tab = 'history_tab') {
     const $results = $('#results');
     $results.empty();
 
-    const $filters = $('<div>', {class: 'filters'});
+    $filters = $('<div>', {class: 'filters'});
     $filters.append('<span>Filter by language:</span>');
 
     const keys = Object.keys(window.Data[key]);
     for (const lang of keys) {
         $filters.append(`
-            <button class="filter-btn" id="filter_button_${lang}"
-                onclick="changeTab('${tab}', false, '${lang}')"
-                style="border-left-color: ${lang_color(lang)}; border-left-width: 3px;">
+            <button class="filter-btn" id="filter_button_${lang}" onclick="changeTab('${tab}', false, '${lang}')" style="border-left-color: ${lang_color(lang)}; border-left-width: 3px;">
                 ${lang}
-            </button>
+            </button>        
         `);
     }
 
     $results.append($filters);
-    $('.filters .filter-btn').removeClass('active');
+    $('.filters .filter-btn').removeClass('active');    
     $(`#filter_button_${select_lang}`).addClass('active');
-
+    
     $results.append(`<div class=table_header><h2>History of language: ${select_lang}</h2></div>`);
 
     const metrics = [
-        { id: 'historyChart_runtime',  title: 'Runtime, s',                 index: 1, unit: 's' },
-        { id: 'historyChart_memory',   title: 'Memory, Mb',                 index: 2, unit: 'Mb' },
-        { id: 'historyChart_cold',     title: 'Cold Compile WallTime, s',   index: 3, unit: 's' },
-        { id: 'historyChart_inc',      title: 'Inc Compile WallTime, s',    index: 4, unit: 's' }
+        { id: 'historyChart_runtime', index: 1, title: 'Runtime, s',               unit: 's'  },
+        { id: 'historyChart_memory',  index: 2, title: 'Memory, Mb',               unit: 'Mb' },
+        { id: 'historyChart_cold',    index: 3, title: 'Cold Compile WallTime, s', unit: 's'  },
+        { id: 'historyChart_inc',     index: 4, title: 'Inc Compile WallTime, s',  unit: 's'  }
     ];
 
     for (const m of metrics) {
         $results.append(`
-            <div class="stat-card" style="height: 520px; margin-bottom: 20px;">
-                <h3>${m.title}</h3>
-                <div style="height: 460px">
-                    <canvas id="${m.id}"></canvas>
-                </div>
+            <div class=table_header><h2>${m.title}</h2></div>
+            <div style="height: 400px; position: relative; width: 100%; background: #0000000f;">
+              <canvas id="${m.id}"></canvas>
             </div>
         `);
     }
@@ -588,99 +584,102 @@ function history_tab(select_lang = 'c', key = 'history', tab = 'history_tab') {
     const historyData = window.Data[key][select_lang];
 
     function prepareChartData(metricIndex) {
-        const allDates = new Set();
-        const datasets = [];
-
-        Object.entries(historyData).forEach(([runName, rows]) => {
-            rows.forEach(row => allDates.add(row[0]));
+      const allDates = new Set();
+      const datasets = [];
+      
+      Object.entries(historyData).forEach(([lang, data]) => {
+        data.forEach((row) => allDates.add(row[0]));
+      });
+      
+      const sortedDates = Array.from(allDates).sort();
+      const colorPalette = [
+        '#4CAF50', '#2196F3', '#FF9800', '#9C27B0', '#F44336',
+        '#00BCD4', '#8BC34A', '#FF5722', '#795548', '#607D8B',
+        '#3F51B5', '#009688', '#FFC107', '#E91E63', '#673AB7'
+      ];
+      
+      let colorIndex = 0;
+      Object.entries(historyData).forEach(([lang, data]) => {
+        const values = new Array(sortedDates.length).fill(null);
+        data.forEach((row) => {
+          const dateIndex = sortedDates.indexOf(row[0]);
+          if (dateIndex !== -1) {
+            values[dateIndex] = row[metricIndex];
+          }
         });
-
-        const sortedDates = Array.from(allDates).sort();
-
-        const colorPalette = [
-            '#4CAF50', '#2196F3', '#FF9800', '#9C27B0', '#F44336',
-            '#00BCD4', '#8BC34A', '#FF5722', '#795548', '#607D8B',
-            '#3F51B5', '#009688', '#FFC107', '#E91E63', '#673AB7'
-        ];
-
-        let colorIndex = 0;
-        Object.entries(historyData).forEach(([runName, rows]) => {
-            const values = new Array(sortedDates.length).fill(null);
-            rows.forEach(row => {
-                const dateIndex = sortedDates.indexOf(row[0]);
-                if (dateIndex !== -1) {
-                    const v = row[metricIndex];
-                    values[dateIndex] = (v === undefined || v === null) ? null : v;
-                }
-            });
-
-            const color = colorPalette[colorIndex % colorPalette.length];
-            datasets.push({
-                label: runName,
-                data: values,
-                borderColor: color,
-                backgroundColor: color + '20',
-                borderWidth: 2,
-                fill: false,
-                tension: 0.1,
-                pointRadius: 4,
-                pointHoverRadius: 6,
-                spanGaps: true
-            });
-            colorIndex++;
+        datasets.push({
+          label: lang,
+          data: values,
+          borderColor: colorPalette[colorIndex % colorPalette.length],
+          backgroundColor: colorPalette[colorIndex % colorPalette.length] + '20',
+          borderWidth: 2,
+          fill: false,
+          tension: 0.1,
+          pointRadius: 4,
+          pointHoverRadius: 6
         });
-
-        return { labels: sortedDates, datasets };
+        
+        colorIndex++;
+      });
+      
+      return {
+        labels: sortedDates,
+        datasets: datasets
+      };
     }
 
     function initChart(metric) {
-        const canvas = document.getElementById(metric.id);
-        if (!canvas) {
-            console.error('Canvas element not found:', metric.id);
-            return;
-        }
-
-        const ctx = canvas.getContext('2d');
-
-        new Chart(ctx, {
-            type: 'line',
-            data: prepareChartData(metric.index),
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: {
-                    mode: 'index',
-                    intersect: false,
-                },
-                plugins: {
-                    legend: {
-                        position: 'right',
-                        labels: { boxWidth: 12, padding: 10, font: { size: 10 } }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const v = context.parsed.y;
-                                if (v === null || v === undefined) return `${context.dataset.label}: —`;
-                                return `${context.dataset.label}: ${v.toFixed(2)} ${metric.unit}`;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        title: { display: true, text: 'Date', font: { size: 10 } },
-                        ticks: { font: { size: 9 } }
-                    },
-                    y: {
-                        title: { display: true, text: metric.title, font: { size: 10 } },
-                        beginAtZero: false,
-                        suggestedMin: 0,
-                        ticks: { font: { size: 9 } }
-                    }
+      const canvas = document.getElementById(metric.id);
+      if (!canvas) {
+        console.error('Canvas element not found!', metric.id);
+        return;
+      }
+      
+      const ctx = canvas.getContext('2d');
+      
+      new Chart(ctx, {
+        type: 'line',
+        data: prepareChartData(metric.index),
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false,
+          },
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: {
+                boxWidth: 12,
+                padding: 15
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return `${context.dataset.label}: ${context.parsed.y.toFixed(2)}${metric.unit}`;
                 }
+              }
             }
-        });
+          },
+          scales: {
+            x: {
+              title: {
+                display: true,
+                text: 'Date'
+              }
+            },
+            y: {
+              title: {
+                display: true,
+                text: metric.title
+              },
+              beginAtZero: false
+            }
+          }
+        }
+      });
     }
 
     setTimeout(() => {
