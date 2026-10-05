@@ -880,32 +880,37 @@ DESC
 
     runs.each do |run|
       runtime = 0.0
+      mem = 0.0
       cnt = 0
 
       @tests.each do |test|
         runtime += @j["#{test}-runtime"][run]
+        mem += @j["#{test}-mem-mb"][run]
         cnt += 1
       end
 
       res[_lang_for(run)] ||= {}
-      res[_lang_for(run)][run] = [[@j['date'], format_float(runtime)]]
+      res[_lang_for(run)][run] = [[@j['date'], format_float(runtime), format_float(mem / @tests.size), format_float(@j["compile-time-cold"][run]), format_float(@j["compile-time-incremental"][run])]]
 
       hist_log = []
       HISTORY.each do |hj|
         runtime2 = 0.0
+        mem2 = 0.0
 
         use_old_cnt = 0
         @tests.each do |test|
           if (rt = hj["#{test}-runtime"]) && rt[run]
             runtime2 += rt[run]
+            mem2 += hj["#{test}-mem-mb"][run]
           else
             use_old_cnt += 1
             runtime2 += @j["#{test}-runtime"][run]
+            mem2 += @j["#{test}-mem-mb"][run]
           end
         end
 
         if use_old_cnt < 10
-          res[_lang_for(run)][run].unshift [hj['date'], format_float(runtime2)]
+          res[_lang_for(run)][run].unshift [hj['date'], format_float(runtime2), format_float(mem2 / @tests.size), format_float(hj["compile-time-cold"][run]), format_float(hj["compile-time-incremental"][run])]
         end
       end
       puts "History for #{run}: #{res[_lang_for(run)][run].map &:first}"
