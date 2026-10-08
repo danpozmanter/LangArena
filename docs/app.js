@@ -563,7 +563,10 @@ function history_tab(select_lang = 'c', key = 'history', tab = 'history_tab') {
     $('.filters .filter-btn').removeClass('active');    
     $(`#filter_button_${select_lang}`).addClass('active');
     
-    $results.append(`<div class=table_header><h2>History of language: ${select_lang}</h2></div>`);
+    $results.append(`<div class=table_header><h2>History of language: ${select_lang}</h2>
+        Note on history: this history does not yet claim to be accurate - it contains many changes to the test conditions that happened over the past 6 months (algorithm changes/fixes, host OS or Docker OS changes, even a CPU cooler replacement affected the results).
+        Ideally, everything should be wiped and started from scratch. Later.
+        </div>`);
 
     const metrics = [
         { id: 'historyChart_runtime', index: 1, title: 'Runtime, s',               unit: 's'  },
