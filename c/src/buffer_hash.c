@@ -39,15 +39,15 @@ static uint32_t buffer_hash_sha256_digest(uint8_t *data, int64_t size) {
                         0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19};
 
   for (int64_t i = 0; i < size; i++) {
-    uint32_t hash_idx = (uint32_t)(i & 7);
-    uint32_t *hash = &hashes[hash_idx];
+    uint32_t hash_idx = i % 8;
+    uint32_t hash = hashes[hash_idx];
 
-    uint32_t temp = (*hash << 5) + *hash;
+    uint32_t temp = (hash << 5) + hash;
     temp = temp + data[i];
-    *hash = temp;
+    hash = temp;
 
-    temp = *hash + (*hash << 10);
-    *hash = temp ^ (*hash >> 6);
+    temp = hash + (hash << 10);
+    hashes[hash_idx] = temp ^ (hash >> 6);
   }
 
   uint8_t result[32];

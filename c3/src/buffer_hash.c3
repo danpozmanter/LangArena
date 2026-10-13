@@ -48,15 +48,15 @@ fn uint buffer_hash_sha256_digest(char[] data)
 
 	for (usz i = 0; i < data.len; i++)
 	{
-		uint hash_idx = (uint)(i & 7);
-		uint* hash    = &hashes[hash_idx];
+		uint hash_idx = (uint)(i % 8);
+		uint hash     = hashes[hash_idx];
 
-		uint temp = (*hash << 5) + *hash;
+		uint temp = (hash << 5) + hash;
 		temp = temp + (uint)(char)data[i];
-		*hash = temp;
+		hash = temp;
 
-		temp = *hash + (*hash << 10);
-		*hash = temp ^ (*hash >> 6);
+		temp = hash + (hash << 10);
+		hashes[hash_idx] = temp ^ (hash >> 6);
 	}
 
 	char[32] result;

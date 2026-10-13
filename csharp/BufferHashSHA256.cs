@@ -10,7 +10,7 @@ public class BufferHashSHA256 : BufferHashBenchmark
 
         for (int i = 0; i < _data.Length; i++)
         {
-            int hashIdx = i & 7;
+            int hashIdx = i % 8;
             uint hash = hashes[hashIdx];
             byte b = _data[i];
 

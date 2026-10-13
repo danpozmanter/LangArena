@@ -1101,7 +1101,7 @@ class HashSHA256 extends BufferHashBenchmark
 
         for ($i = 0; $i < $len; $i++) {
             $byte = ord($data[$i]);
-            $hashIdx = $i & 7;
+            $hashIdx = $i % 8;
             $hash = $hashes[$hashIdx];
             $hash = ((($hash << 5) & 0xFFFFFFFF) + $hash + $byte) & 0xFFFFFFFF;
             $hash = (($hash + ($hash << 10)) ^ ($hash >> 6)) & 0xFFFFFFFF;

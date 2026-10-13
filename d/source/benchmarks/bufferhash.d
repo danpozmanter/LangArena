@@ -70,7 +70,7 @@ private:
 
         foreach (i, ref d; data)
         {
-            auto idx = i & 7;
+            auto idx = i % 8;
             uint h = hashes[idx];
             h = ((h << 5) + h) + d;
             h = (h + (h << 10)) ^ (h >> 6);

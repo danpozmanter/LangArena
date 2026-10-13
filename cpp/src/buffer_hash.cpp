@@ -29,7 +29,7 @@ BufferHashSHA256::SimpleSHA256::digest(const std::vector<uint8_t> &data) {
                         0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19};
 
   for (size_t i = 0; i < data.size(); i++) {
-    uint32_t hash_idx = i & 7;
+    uint32_t hash_idx = i % 8;
     uint32_t &hash = hashes[hash_idx];
     hash = ((hash << 5) + hash) + data[i];
     hash = (hash + (hash << 10)) ^ (hash >> 6);

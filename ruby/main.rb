@@ -2014,7 +2014,7 @@ module HashModule
         ]
 
         data.each_with_index do |byte, i|
-          hash_idx = i & 7
+          hash_idx = i % 8
           hash = hashes[hash_idx]
           hash = ((hash << 5) + hash + byte) & 0xFFFFFFFF
           hash = ((hash + (hash << 10)) ^ (hash >> 6)) & 0xFFFFFFFF
